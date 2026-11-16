@@ -1,17 +1,28 @@
-// One row per customer journey (unique lead/enquiry), tagged with the furthest funnel stage reached.
-// Tags are exclusive, so the per-tag counts add up to the total number of rows.
+// Single source for the funnel. The Leads & Funnel page and the dashboard funnel graph both read from here,
+// so their numbers always match. One row per unique customer (duplicates are kept but flagged and excluded).
 
 import type { DB, Lead } from "./types";
 import { bookingFinance } from "./finance";
 import { BOOKING_FLOW } from "./workflow";
 
-export type FunnelStage = "enquiry" | "lead" | "request" | "quoted" | "booked" | "paid" | "lost" | "duplicate";
+/** Funnel steps, in order. Counts are cumulative: a customer who is Fully paid also counts as Booked, Quoted, Request and Lead. */
+export type FunnelStep = "enquiry" | "lead" | "request" | "quoted" | "booked" | "paid";
 
-export const STAGE_ORDER: FunnelStage[] = ["enquiry", "lead", "request", "quoted", "booked", "paid", "lost", "duplicate"];
+export const STEPS: { key: FunnelStep; label: string }[] = [
+  { key: "enquiry", label: "Enquiries (no OTP)" },
+  { key: "lead", label: "Leads (OTP verified)" },
+  { key: "request", label: "Requests raised" },
+  { key: "quoted", label: "Quoted" },
+  { key: "booked", label: "Booked" },
+  { key: "paid", label: "Fully paid" },
+];
 
-export const STAGE_LABEL: Record<FunnelStage, string> = {
+/** The tag shown on a row: the furthest stage reached, or Lost / Duplicate. */
+export type FunnelTag = FunnelStep | "lost" | "duplicate";
+
+export const TAG_LABEL: Record<FunnelTag, string> = {
   enquiry: "Enquiry (no OTP)",
-  lead: "Lead (OTP verified)",
+  lead: "Lead",
   request: "Request raised",
   quoted: "Quoted",
   booked: "Booked",
@@ -20,53 +31,78 @@ export const STAGE_LABEL: Record<FunnelStage, string> = {
   duplicate: "Duplicate (merged)",
 };
 
-/** Progress through the 6 funnel steps (0 = enquiry … 5 = fully paid). */
-export const STAGE_DEPTH: Record<FunnelStage, number> = {
-  enquiry: 0, lead: 1, request: 2, quoted: 3, booked: 4, paid: 5, lost: 1, duplicate: 0,
-};
+export type StepFilter = FunnelTag | "all";
+
+/** Position on the 6-step progress bar (0 = enquiry … 5 = fully paid). */
+export const TAG_DEPTH: Record<FunnelTag, number> = { enquiry: 0, lead: 1, request: 2, quoted: 3, booked: 4, paid: 5, lost: 1, duplicate: 0 };
 
 export interface FunnelRow {
   lead: Lead;
-  stage: FunnelStage;
+  tag: FunnelTag;
+  reached: Record<FunnelStep, boolean>;
   requests: number;
   quotes: number;
   bookingIds: string[];
   requestIds: string[];
   value: number; // booked value incl. GST on live bookings
   received: number;
-  href: string;
+  /** Most advanced record to open (booking, else request); null while still at intake. */
+  href: string | null;
 }
 
 const PAID_INDEX = BOOKING_FLOW.indexOf("fully_paid");
 
 export function funnelRows(db: DB): FunnelRow[] {
   return db.leads.map((lead) => {
+    const unique = !lead.duplicateOf;
     const requests = db.requests.filter((r) => r.leadId === lead.id);
     const requestIds = requests.map((r) => r.id);
-    const quotes = db.quotes.filter((q) => requestIds.includes(q.requestId) && q.status !== "draft");
+    const sentQuotes = db.quotes.filter((q) => requestIds.includes(q.requestId) && q.status !== "draft");
     const bookings = db.bookings.filter((b) => b.leadId === lead.id && b.status !== "cancelled");
     const fin = bookings.map((b) => bookingFinance(db, b));
+    const hasPaid = bookings.some((b) => BOOKING_FLOW.indexOf(b.status) >= PAID_INDEX);
 
-    let stage: FunnelStage;
-    if (lead.duplicateOf) stage = "duplicate";
-    else if (bookings.some((b) => BOOKING_FLOW.indexOf(b.status) >= PAID_INDEX)) stage = "paid";
-    else if (bookings.length) stage = "booked";
-    else if (lead.status === "lost" || (requests.length > 0 && requests.every((r) => r.stage === "lost"))) stage = "lost";
-    else if (requests.some((r) => db.quotes.some((q) => q.requestId === r.id && q.status !== "draft"))) stage = "quoted";
-    else if (requests.length) stage = "request";
-    else stage = lead.otpVerified ? "lead" : "enquiry";
+    const reached: Record<FunnelStep, boolean> = {
+      enquiry: unique && !lead.otpVerified,
+      lead: unique && lead.otpVerified,
+      request: unique && requests.length > 0,
+      quoted: unique && sentQuotes.length > 0,
+      booked: unique && bookings.length > 0,
+      paid: unique && hasPaid,
+    };
 
-    const href = bookings[0] ? `/bookings/${bookings[0].id}` : requests[0] ? `/requests/${requests[0].id}` : `/leads#${lead.id}`;
+    let tag: FunnelTag;
+    if (!unique) tag = "duplicate";
+    else if (hasPaid) tag = "paid";
+    else if (bookings.length) tag = "booked";
+    else if (lead.status === "lost" || (requests.length > 0 && requests.every((r) => r.stage === "lost"))) tag = "lost";
+    else if (sentQuotes.length) tag = "quoted";
+    else if (requests.length) tag = "request";
+    else tag = lead.otpVerified ? "lead" : "enquiry";
+
     return {
       lead,
-      stage,
+      tag,
+      reached,
       requests: requests.length,
-      quotes: quotes.length,
+      quotes: sentQuotes.length,
       bookingIds: bookings.map((b) => b.id),
       requestIds,
       value: fin.reduce((s, f) => s + f.booked.gross, 0),
       received: fin.reduce((s, f) => s + f.received, 0),
-      href,
+      href: bookings[0] ? `/bookings/${bookings[0].id}` : requests[0] ? `/requests/${requests[0].id}` : null,
     };
   });
+}
+
+/** Does this row belong to the chosen filter? Funnel steps are cumulative ("reached at least"). */
+export function rowMatches(row: FunnelRow, filter: StepFilter): boolean {
+  if (filter === "all") return true;
+  if (filter === "lost" || filter === "duplicate") return row.tag === filter;
+  return row.reached[filter];
+}
+
+/** The numbers behind the dashboard funnel graph and the filter chips on the Leads & Funnel page. */
+export function funnelSteps(rows: FunnelRow[]) {
+  return STEPS.map((s) => ({ ...s, value: rows.filter((r) => r.reached[s.key]).length }));
 }

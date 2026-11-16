@@ -34,12 +34,12 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Funnel</CardTitle>
             <CardDescription>
-              Only OTP-verified intake counts as a lead. {m.duplicates} duplicate{m.duplicates === 1 ? "" : "s"} merged across CRMs.
+              Counted from the Leads &amp; Funnel page, one count per customer. Click a bar to see them. {m.duplicates} duplicate{m.duplicates === 1 ? "" : "s"} merged across CRMs.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             {m.funnel.map((f, i) => (
-              <div key={f.label} className="flex items-center gap-3">
+              <Link key={f.key} href={`/leads?step=${f.key}`} className="hover:bg-muted/50 -mx-1 flex items-center gap-3 rounded px-1">
                 <div className="text-muted-foreground w-40 shrink-0 text-sm">{f.label}</div>
                 <div className="bg-muted h-7 flex-1 overflow-hidden rounded">
                   <div
@@ -48,7 +48,7 @@ export default function DashboardPage() {
                   />
                 </div>
                 <div className="w-10 text-right text-sm font-semibold tabular-nums">{f.value}</div>
-              </div>
+              </Link>
             ))}
             <div className="text-muted-foreground grid grid-cols-2 gap-2 pt-3 text-xs sm:grid-cols-4">
               <div>Lead → booking: <b className="text-foreground">{formatPct(m.leadToBooking)}</b></div>
@@ -56,8 +56,8 @@ export default function DashboardPage() {
               <div>Quotes / request: <b className="text-foreground">{m.quotesPerRequest.toFixed(1)}</b></div>
               <div>Avg first quote: <b className="text-foreground">{m.avgFirstQuoteHours.toFixed(1)}h</b></div>
             </div>
-            <Link href="/funnel" className="text-muted-foreground block pt-1 text-xs underline-offset-2 hover:underline">
-              View all funnel items →
+            <Link href="/leads" className="text-muted-foreground block pt-1 text-xs underline-offset-2 hover:underline">
+              Open Leads &amp; Funnel →
             </Link>
           </CardContent>
         </Card>

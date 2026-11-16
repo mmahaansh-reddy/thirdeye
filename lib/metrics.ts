@@ -2,17 +2,15 @@
 
 import type { DB } from "./types";
 import { bookingFinance } from "./finance";
-import { BOOKING_FLOW, isOverdue } from "./workflow";
-
-const paidOrBeyond = BOOKING_FLOW.indexOf("fully_paid");
+import { isOverdue } from "./workflow";
+import { funnelRows, funnelSteps } from "./funnel";
 
 export function dashboardMetrics(db: DB) {
-  const unique = db.leads.filter((l) => !l.duplicateOf);
-  const leads = unique.filter((l) => l.otpVerified);
-  const enquiries = unique.filter((l) => !l.otpVerified);
-  const quotedRequests = db.requests.filter((r) => db.quotes.some((q) => q.requestId === r.id && q.status !== "draft"));
+  // Funnel numbers come from the same rows that power the Leads & Funnel page.
+  const rows = funnelRows(db);
+  const steps = funnelSteps(rows);
+  const stepCount = (k: string) => steps.find((s) => s.key === k)?.value ?? 0;
   const live = db.bookings.filter((b) => b.status !== "cancelled");
-  const paid = live.filter((b) => BOOKING_FLOW.indexOf(b.status) >= paidOrBeyond);
 
   const fin = live.map((b) => ({ b, f: bookingFinance(db, b) }));
   const sum = (fn: (x: (typeof fin)[number]) => number) => fin.reduce((s, x) => s + fn(x), 0);
@@ -32,16 +30,16 @@ export function dashboardMetrics(db: DB) {
     .filter((x): x is number => x !== null);
 
   const bySource = Object.values(
-    unique.reduce<Record<string, { source: string; enquiries: number; leads: number; bookings: number; value: number }>>((acc, l) => {
-      const row = (acc[l.source] ??= { source: l.source, enquiries: 0, leads: 0, bookings: 0, value: 0 });
-      if (l.otpVerified) row.leads++;
-      else row.enquiries++;
-      for (const x of fin.filter((x) => x.b.leadId === l.id)) {
-        row.bookings++;
-        row.value += x.f.booked.gross;
-      }
-      return acc;
-    }, {})
+    rows
+      .filter((r) => r.tag !== "duplicate")
+      .reduce<Record<string, { source: string; enquiries: number; leads: number; bookings: number; value: number }>>((acc, r) => {
+        const row = (acc[r.lead.source] ??= { source: r.lead.source, enquiries: 0, leads: 0, bookings: 0, value: 0 });
+        if (r.reached.enquiry) row.enquiries++;
+        if (r.reached.lead) row.leads++;
+        row.bookings += r.bookingIds.length;
+        row.value += r.value;
+        return acc;
+      }, {})
   );
 
   const byOwner = db.users
@@ -59,17 +57,10 @@ export function dashboardMetrics(db: DB) {
     });
 
   return {
-    funnel: [
-      { label: "Enquiries (no OTP)", value: enquiries.length },
-      { label: "Leads (OTP verified)", value: leads.length },
-      { label: "Requests", value: db.requests.length },
-      { label: "Quoted", value: quotedRequests.length },
-      { label: "Booked", value: live.length },
-      { label: "Fully paid", value: paid.length },
-    ],
-    duplicates: db.leads.length - unique.length,
-    leadToBooking: leads.length ? (live.length / leads.length) * 100 : 0,
-    enquiryShare: unique.length ? (enquiries.length / unique.length) * 100 : 0,
+    funnel: steps,
+    duplicates: rows.filter((r) => r.tag === "duplicate").length,
+    leadToBooking: stepCount("lead") ? (stepCount("booked") / stepCount("lead")) * 100 : 0,
+    enquiryShare: stepCount("enquiry") + stepCount("lead") ? (stepCount("enquiry") / (stepCount("enquiry") + stepCount("lead"))) * 100 : 0,
     quotesPerRequest,
     avgFirstQuoteHours: firstQuoteHours.length ? firstQuoteHours.reduce((a, b) => a + b, 0) / firstQuoteHours.length : 0,
     money: {
