@@ -2,15 +2,21 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import { useDB } from "@/lib/store";
-import type { ChangeRequestStatus } from "@/lib/types";
+import { actions } from "@/lib/store";
+import type { Booking, ChangeRequest, ChangeRequestStatus, DB, LineItem } from "@/lib/types";
 import { cn, formatDate, formatINR } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { LineItemsEditor } from "@/components/line-items-editor";
 import { NativeSelect } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Empty, Loading, PageHeader, Stat, userName } from "@/components/common";
+import { Empty, ErrorText, Field, Loading, PageHeader, Stat, userName, useAction } from "@/components/common";
 
 const TONE: Record<ChangeRequestStatus, "warning" | "success" | "destructive"> = {
   pending: "warning",
@@ -23,6 +29,18 @@ export default function ChangeRequestsPage() {
   const router = useRouter();
   const [status, setStatus] = useState<"all" | ChangeRequestStatus>("all");
   const [raisedBy, setRaisedBy] = useState("all");
+  const [raising, setRaising] = useState(false);
+  const [presetBooking, setPresetBooking] = useState("");
+
+  // Arriving from a booking's "Raise change request" button (?booking=B-XXXX) opens the form for that booking.
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("booking");
+    if (id) {
+      setPresetBooking(id);
+      setRaising(true);
+    }
+  }, []);
+
   if (!db) return <Loading />;
 
   const all = db.changeRequests;
@@ -36,7 +54,23 @@ export default function ChangeRequestsPage() {
     <>
       <PageHeader
         title="Change requests"
-        description="Every customer, client or internal change across all bookings. Click a row to open the booking and decide or review it."
+        description="Raise a change against an existing booking. Full details are viewable only inside the booking, and are read-only."
+      >
+        <Button onClick={() => setRaising(true)}>
+          <Plus /> Raise change request
+        </Button>
+      </PageHeader>
+      <RaiseDialog
+        db={db}
+        open={raising}
+        presetBooking={presetBooking}
+        onOpenChange={(o) => {
+          setRaising(o);
+          if (!o) {
+            setPresetBooking("");
+            window.history.replaceState(null, "", "/change-requests");
+          }
+        }}
       />
 
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -148,5 +182,116 @@ export default function ChangeRequestsPage() {
         </Card>
       )}
     </>
+  );
+}
+
+const EDITABLE = (b: Booking) => !["cancelled", "closed", "vendor_settled"].includes(b.status);
+
+function RaiseDialog({ db, open, presetBooking, onOpenChange }: { db: DB; open: boolean; presetBooking: string; onOpenChange: (o: boolean) => void }) {
+  const { error, run, setError } = useAction();
+  const router = useRouter();
+  const [bookingId, setBookingId] = useState("");
+  const [items, setItems] = useState<LineItem[] | null>(null);
+  const [desc, setDesc] = useState("");
+  const [raisedBy, setRaisedBy] = useState<ChangeRequest["raisedBy"]>("customer");
+
+  const eligible = db.bookings.filter(EDITABLE);
+  const selectedId = bookingId || (presetBooking && eligible.some((b) => b.id === presetBooking) ? presetBooking : "");
+  const booking = eligible.find((b) => b.id === selectedId);
+  const lead = db.leads.find((l) => l.id === booking?.leadId);
+  const req = db.requests.find((r) => r.id === booking?.requestId);
+  // Lines start as a copy of the booking's current lines; null means "not edited yet".
+  const lines: LineItem[] = items ?? (booking ? structuredClone(booking.items) : []);
+
+  const reset = () => {
+    setBookingId("");
+    setItems(null);
+    setDesc("");
+    setRaisedBy("customer");
+    setError(null);
+  };
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) reset();
+        onOpenChange(o);
+      }}
+    >
+      <DialogContent className="sm:max-w-5xl">
+        <DialogHeader>
+          <DialogTitle>Raise change request</DialogTitle>
+          <DialogDescription>
+            Must be linked to an existing booking. Edit the lines to show what the customer wants; the booking itself is not touched until an Admin approves.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-3 md:grid-cols-[1.4fr_1fr]">
+            <Field label="Booking (required)">
+              <select
+                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                value={selectedId}
+                onChange={(e) => {
+                  setBookingId(e.target.value);
+                  setItems(null);
+                }}
+              >
+                <option value="">Select an existing booking</option>
+                {eligible.map((b) => {
+                  const l = db.leads.find((x) => x.id === b.leadId);
+                  return (
+                    <option key={b.id} value={b.id}>
+                      {b.id} · {l?.customerName ?? ""} · {db.requests.find((r) => r.id === b.requestId)?.title ?? ""}
+                    </option>
+                  );
+                })}
+              </select>
+            </Field>
+            <Field label="Raised by">
+              <select
+                className="border-input bg-background h-9 w-full rounded-md border px-3 text-sm"
+                value={raisedBy}
+                onChange={(e) => setRaisedBy(e.target.value as ChangeRequest["raisedBy"])}
+              >
+                <option value="customer">Customer</option>
+                <option value="client">Client</option>
+                <option value="internal">Internal</option>
+              </select>
+            </Field>
+          </div>
+
+          {booking && (
+            <>
+              <div className="text-muted-foreground text-xs">
+                Linked to booking <b className="text-foreground">{booking.id}</b> (v{booking.version}) · request{" "}
+                <b className="text-foreground">{req?.id}</b> · {lead?.customerName}
+              </div>
+              <Field label="What changed and why">
+                <Input value={desc} onChange={(e) => setDesc(e.target.value)} placeholder="e.g. Customer wants a gala dinner added on night 2" />
+              </Field>
+              <LineItemsEditor db={db} items={lines} onChange={setItems} />
+            </>
+          )}
+          <ErrorText error={error} />
+        </div>
+        <DialogFooter>
+          <Button
+            disabled={!booking}
+            onClick={() => {
+              if (!booking) return setError("Select a booking to link this change to");
+              run(actions.raiseChangeRequest(booking.id, raisedBy, desc, lines), () => {
+                const id = booking.id;
+                reset();
+                onOpenChange(false);
+                router.push(`/bookings/${id}#changes`);
+              });
+            }}
+          >
+            Submit for approval
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

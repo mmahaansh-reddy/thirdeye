@@ -330,6 +330,8 @@ export const actions = {
       if (["cancelled", "closed", "vendor_settled"].includes(b.status)) throw new Error("Booking can no longer be changed");
       if (!description.trim()) throw new Error("Describe the change");
       checkVendorsSoft(db, proposedItems);
+      const strip = (items: LineItem[]) => JSON.stringify(items.map(({ id: _id, ...rest }) => rest));
+      if (strip(proposedItems) === strip(b.items)) throw new Error("No changes made: edit at least one line before submitting");
       const before = totals(b.items);
       const after = totals(proposedItems);
       const id = uid("CR");

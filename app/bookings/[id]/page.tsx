@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
-import type { Booking, ChangeRequest, DB, LineItem } from "@/lib/types";
+import type { Booking, ChangeRequest, DB } from "@/lib/types";
 import { bookingFinance, tdsFor, vendorById } from "@/lib/finance";
 import { BOOKING_FLOW, BOOKING_STATUS_LABEL, MANUAL_TRANSITIONS } from "@/lib/workflow";
 import { cn, formatDate, formatINR } from "@/lib/utils";
@@ -15,7 +15,7 @@ import { Input, NativeSelect } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookingStatusBadge, Empty, ErrorText, Field, Loading, PageHeader, useAction, userName } from "@/components/common";
-import { LineItemsEditor, LineItemsTable } from "@/components/line-items-editor";
+import { LineItemsTable } from "@/components/line-items-editor";
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -192,56 +192,21 @@ function Payments({ db, b }: { db: DB; b: Booking }) {
 
 function ChangeRequests({ db, b, crs }: { db: DB; b: Booking; crs: ChangeRequest[] }) {
   const { error, run } = useAction();
-  const [draft, setDraft] = useState<LineItem[] | null>(null);
-  const [desc, setDesc] = useState("");
-  const [raisedBy, setRaisedBy] = useState<ChangeRequest["raisedBy"]>("customer");
   return (
     <div className="space-y-3">
       <Card>
-        <CardHeader>
-          <CardTitle>Raise change request</CardTitle>
-          <CardDescription>The booking is never edited directly. Approved changes create a new version; value and margin deltas are recorded.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {draft === null ? (
-            <Button variant="outline" onClick={() => setDraft(structuredClone(b.items))}>
-              Start change request
-            </Button>
-          ) : (
-            <>
-              <div className="grid gap-3 md:grid-cols-[1fr_200px]">
-                <Field label="What changed and why">
-                  <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
-                </Field>
-                <Field label="Raised by">
-                  <NativeSelect value={raisedBy} onChange={(e) => setRaisedBy(e.target.value as ChangeRequest["raisedBy"])}>
-                    <option value="customer">Customer</option>
-                    <option value="client">Client</option>
-                    <option value="internal">Internal</option>
-                  </NativeSelect>
-                </Field>
-              </div>
-              <LineItemsEditor db={db} items={draft} onChange={setDraft} />
-              <div className="flex gap-2">
-                <Button
-                  onClick={() =>
-                    run(actions.raiseChangeRequest(b.id, raisedBy, desc, draft), () => {
-                      setDraft(null);
-                      setDesc("");
-                    })
-                  }
-                >
-                  Submit for approval
-                </Button>
-                <Button variant="ghost" onClick={() => setDraft(null)}>
-                  Discard
-                </Button>
-              </div>
-            </>
-          )}
-          <ErrorText error={error} />
+        <CardContent className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-muted-foreground text-sm">
+            Change requests are raised from the <b>Change Requests</b> page and linked to this booking. They are read-only here: the booking only
+            changes when an Admin approves one, which creates a new version.
+          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/change-requests?booking=${b.id}`}>Raise change request for {b.id}</Link>
+          </Button>
         </CardContent>
       </Card>
+      <ErrorText error={error} />
+      {crs.length === 0 && <Empty>No change requests for this booking.</Empty>}
       {crs.map((c) => (
         <Card key={c.id}>
           <CardHeader>
