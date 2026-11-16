@@ -56,6 +56,9 @@ export default function DashboardPage() {
               <div>Quotes / request: <b className="text-foreground">{m.quotesPerRequest.toFixed(1)}</b></div>
               <div>Avg first quote: <b className="text-foreground">{m.avgFirstQuoteHours.toFixed(1)}h</b></div>
             </div>
+            <Link href="/funnel" className="text-muted-foreground block pt-1 text-xs underline-offset-2 hover:underline">
+              View all funnel items →
+            </Link>
           </CardContent>
         </Card>
 

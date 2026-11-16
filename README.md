@@ -34,6 +34,7 @@ A web app that is the **single source of truth** for leads, quotes, bookings, ch
 | Records are locked once committed | Accepted quotes and confirmed bookings can't be edited. Changes go through change requests, which create new versions | Full history, and the margin impact of each change is known. |
 | Rules are enforced in the data layer | Every action checks permissions and business rules; violations throw `Blocked` and are written to the audit log | The UI can't get around rules. Founders can see who tried what. |
 | Follow-ups are generated from data | `syncTasks()` runs after every change and reconciles tasks with current data | No one has to remember to create follow-ups. Completed steps close their tasks automatically. |
+| Funnel items view | One row per customer (unique lead/enquiry), tagged with the furthest stage reached: Enquiry → Lead → Request → Quoted → Booked → Fully paid, plus Lost and Duplicate | Tags are exclusive so counts add up. The dashboard counts records per step, so numbers can differ when a customer has several requests. |
 | Lead definition | OTP-verified **and** not a duplicate | Matches the business definition. Enquiries keep their own conversion figures. |
 | Duplicate detection | Same 10-digit phone number = duplicate of the first record | Simple and predictable. Can be extended with email or fuzzy name matching. |
 | Three margins per booking | **Quoted** (accepted quote) → **Booked** (after approved changes) → **Realised** (booked sell − actual vendor invoices) | Splits "margin promised" from "margin earned". The gap shows where inflated numbers are. |
@@ -106,6 +107,7 @@ app/
   bookings/ [id]/          Lifecycle, payments, change requests, vendor invoices/payouts, history
   change-requests/         Raise change requests (linked to an existing booking) + list of all of them
   vendors/                 Vendor master and approvals
+  funnel/                  Every customer journey tagged by furthest stage, with filters
   finance/                 Per-booking ledger: 3 margins, GST, TDS, payables
   tasks/                   Follow-ups (auto + manual)
   audit/                   Audit log (info / overrides / blocked)
