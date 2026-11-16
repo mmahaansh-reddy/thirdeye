@@ -34,7 +34,7 @@ export default function DashboardPage() {
           <CardHeader>
             <CardTitle>Funnel</CardTitle>
             <CardDescription>
-              Counted from the Leads &amp; Funnel page, one count per customer. Click a bar to see them. {m.duplicates} duplicate{m.duplicates === 1 ? "" : "s"} merged across CRMs.
+              Counted from the Leads and Enquiries page, one count per customer. Click a bar to see them. {m.duplicates} duplicate{m.duplicates === 1 ? "" : "s"} merged across CRMs.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -57,7 +57,7 @@ export default function DashboardPage() {
               <div>Avg first quote: <b className="text-foreground">{m.avgFirstQuoteHours.toFixed(1)}h</b></div>
             </div>
             <Link href="/leads" className="text-muted-foreground block pt-1 text-xs underline-offset-2 hover:underline">
-              Open Leads &amp; Funnel →
+              Open Leads and Enquiries →
             </Link>
           </CardContent>
         </Card>

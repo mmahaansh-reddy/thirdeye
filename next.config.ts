@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // The old Funnel Items page was merged into Leads & Funnel.
+  // The old Funnel Items page was merged into Leads and Enquiries.
   async redirects() {
     return [{ source: "/funnel", destination: "/leads", permanent: false }];
   },
