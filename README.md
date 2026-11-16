@@ -1,4 +1,4 @@
-# Thirdeye — Mahaansh Control Tower
+# ThirdEye
 
 Thirdeye keeps a check on all the data that slips through the gaps in the process.
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileText, CalendarCheck, GitPullRequestArrow, Building2, IndianRupee, ListTodo, ScrollText, Settings, RotateCcw, TowerControl,
+  LayoutDashboard, Users, FileText, CalendarCheck, GitPullRequestArrow, Building2, IndianRupee, ListTodo, ScrollText, Settings, RotateCcw, Eye,
 } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
 import { isOverdue } from "@/lib/workflow";
@@ -31,11 +31,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="bg-sidebar text-sidebar-foreground sticky top-0 hidden h-screen w-60 shrink-0 flex-col border-r border-sidebar-border md:flex">
         <div className="flex items-center gap-2 px-5 py-5">
-          <TowerControl className="size-5" />
-          <div>
-            <div className="text-sm font-semibold text-white">Mahaansh</div>
-            <div className="text-xs opacity-60">Control Tower</div>
-          </div>
+          <Eye className="size-5" />
+          <div className="text-base font-semibold tracking-tight text-white">ThirdEye</div>
         </div>
         <nav className="flex-1 space-y-0.5 px-3">
           {NAV.map(({ href, label, icon: Icon }) => {

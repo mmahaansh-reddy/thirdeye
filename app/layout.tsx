@@ -3,7 +3,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 
 export const metadata: Metadata = {
-  title: "Mahaansh Control Tower",
+  title: "ThirdEye",
   description: "Single source of truth for leads, quotes, bookings, margins and follow-ups",
 };
 
