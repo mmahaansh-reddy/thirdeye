@@ -104,6 +104,7 @@ app/
   leads/                   Leads, enquiries (no OTP), duplicates
   requests/ [id]/          Requests, quotes, pre-sales routing
   bookings/ [id]/          Lifecycle, payments, change requests, vendor invoices/payouts, history
+  change-requests/         All change requests across bookings (filter by status / raised by)
   vendors/                 Vendor master and approvals
   finance/                 Per-booking ledger: 3 margins, GST, TDS, payables
   tasks/                   Follow-ups (auto + manual)
@@ -140,7 +141,7 @@ The app loads with demo data. Use **Reset demo data** in the sidebar to restore 
 2. **Requests →** act as *Meera (Seller)* and route to pre-sales → blocked and logged. Switch to *Asha (Sales)* → allowed.
 3. **New quote** using *QuickDeals (unverified)* → blocked unless you're Admin and give a reason.
 4. **Accept a quote →** booking created → act as Seller to accept → confirm → record payments → status updates automatically.
-5. **Change request →** add a line → approve as Admin → booking moves to v2 with value and margin change.
+5. **Change request →** open a booking (click anywhere on its row) → *Change requests* tab → add a line → approve as Admin → booking moves to v2 with value and margin change. The **Change Requests** page lists every change across all bookings.
 6. **Vendor invoices →** record an invoice above the vendor quote → leakage and a warning appear on the dashboard.
 
 ---

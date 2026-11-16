@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
 import type { Booking, ChangeRequest, DB, LineItem } from "@/lib/types";
@@ -21,6 +21,10 @@ export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
   const db = useDB();
   const { error, run } = useAction();
+  const [tab, setTab] = useState("items");
+  useEffect(() => {
+    if (window.location.hash === "#changes") setTab("changes");
+  }, []);
   if (!db) return <Loading />;
   const b = db.bookings.find((x) => x.id === id);
   if (!b) return <Empty>Booking {id} not found.</Empty>;
@@ -69,7 +73,7 @@ export default function BookingDetailPage() {
         <Money label="TDS deducted" value={f.tdsDeducted} hint={`net paid ${formatINR(f.vendorPaidNet)}`} />
       </div>
 
-      <Tabs defaultValue="items" className="mt-6">
+      <Tabs value={tab} onValueChange={setTab} className="mt-6">
         <TabsList className="flex-wrap">
           <TabsTrigger value="items">Line items</TabsTrigger>
           <TabsTrigger value="payments">Customer payments ({b.payments.length})</TabsTrigger>

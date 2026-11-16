@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDB } from "@/lib/store";
 import { bookingFinance } from "@/lib/finance";
 import { formatDate, formatINR, formatPct } from "@/lib/utils";
@@ -11,6 +12,7 @@ import { BookingStatusBadge, Empty, Loading, PageHeader, userName } from "@/comp
 
 export default function BookingsPage() {
   const db = useDB();
+  const router = useRouter();
   if (!db) return <Loading />;
   return (
     <>
@@ -31,6 +33,7 @@ export default function BookingsPage() {
                   <TableHead className="text-right">Value</TableHead>
                   <TableHead className="text-right">Received</TableHead>
                   <TableHead className="text-right">Booked margin</TableHead>
+                  <TableHead className="text-right">Changes</TableHead>
                   <TableHead>Created</TableHead>
                 </TableRow>
               </TableHeader>
@@ -38,9 +41,16 @@ export default function BookingsPage() {
                 {db.bookings.map((b) => {
                   const f = bookingFinance(db, b);
                   const lead = db.leads.find((l) => l.id === b.leadId);
-                  const pendingCR = db.changeRequests.some((c) => c.bookingId === b.id && c.status === "pending");
+                  const bookingCRs = db.changeRequests.filter((c) => c.bookingId === b.id);
+                  const pendingCR = bookingCRs.some((c) => c.status === "pending");
                   return (
-                    <TableRow key={b.id}>
+                    <TableRow
+                      key={b.id}
+                      className="cursor-pointer"
+                      tabIndex={0}
+                      onClick={() => router.push(`/bookings/${b.id}`)}
+                      onKeyDown={(e) => e.key === "Enter" && router.push(`/bookings/${b.id}`)}
+                    >
                       <TableCell>
                         <Link href={`/bookings/${b.id}`} className="font-mono text-xs underline-offset-2 hover:underline">
                           {b.id}
@@ -58,6 +68,19 @@ export default function BookingsPage() {
                       <TableCell className="text-right tabular-nums">{formatINR(f.received)}</TableCell>
                       <TableCell className="text-right tabular-nums">
                         {formatINR(f.booked.margin)} <span className="text-muted-foreground text-xs">({formatPct(f.booked.marginPct)})</span>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {bookingCRs.length ? (
+                          <Link
+                            href={`/bookings/${b.id}#changes`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="underline-offset-2 hover:underline"
+                          >
+                            {bookingCRs.length}
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </TableCell>
                       <TableCell className="text-muted-foreground text-xs">{formatDate(b.createdAt)}</TableCell>
                     </TableRow>

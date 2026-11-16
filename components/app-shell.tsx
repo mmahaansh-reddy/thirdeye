@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard, Users, FileText, CalendarCheck, Building2, IndianRupee, ListTodo, ScrollText, Settings, RotateCcw, TowerControl,
+  LayoutDashboard, Users, FileText, CalendarCheck, GitPullRequestArrow, Building2, IndianRupee, ListTodo, ScrollText, Settings, RotateCcw, TowerControl,
 } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
 import { isOverdue } from "@/lib/workflow";
@@ -14,6 +14,7 @@ const NAV = [
   { href: "/leads", label: "Leads & Enquiries", icon: Users },
   { href: "/requests", label: "Requests & Quotes", icon: FileText },
   { href: "/bookings", label: "Bookings", icon: CalendarCheck },
+  { href: "/change-requests", label: "Change Requests", icon: GitPullRequestArrow },
   { href: "/vendors", label: "Vendors", icon: Building2 },
   { href: "/finance", label: "Finance & Margins", icon: IndianRupee },
   { href: "/tasks", label: "Follow-ups", icon: ListTodo },
