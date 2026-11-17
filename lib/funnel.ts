@@ -1,4 +1,4 @@
-// Single source for the funnel. The Leads and Enquiries page and the dashboard funnel graph both read from here,
+// Single source for the funnel. The Leads and Bookings page and the dashboard funnel graph both read from here,
 // so their numbers always match. One row per unique customer (duplicates are kept but flagged and excluded).
 
 import type { DB, Lead } from "./types";
@@ -99,7 +99,7 @@ export function rowMatches(row: FunnelRow, filter: StepFilter): boolean {
   return row.reached[filter];
 }
 
-/** The numbers behind the dashboard funnel graph and the filter chips on the Leads and Enquiries page. */
+/** The numbers behind the dashboard funnel graph and the filter chips on the Leads and Bookings page. */
 export function funnelSteps(rows: FunnelRow[]) {
   return STEPS.map((s) => ({ ...s, value: rows.filter((r) => r.reached[s.key]).length }));
 }

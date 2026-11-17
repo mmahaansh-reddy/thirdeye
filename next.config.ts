@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Funnel Items and Requests & Quotes were folded into Leads and Enquiries.
+  // Funnel Items and Requests & Quotes were folded into Leads and Bookings.
   async redirects() {
     return [
       { source: "/funnel", destination: "/leads", permanent: false },

@@ -33,9 +33,9 @@ export default function DashboardPage() {
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
-            <CardTitle>Leads and Enquiries</CardTitle>
+            <CardTitle>Leads and Bookings</CardTitle>
             <CardDescription>
-              Counted from the Leads and Enquiries page, one count per customer. Click a bar to see them. {m.duplicates} duplicate{m.duplicates === 1 ? "" : "s"} merged across CRMs.
+              Counted from the Leads and Bookings page, one count per customer. Click a bar to see them. {m.duplicates} duplicate{m.duplicates === 1 ? "" : "s"} merged across CRMs.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
@@ -58,7 +58,7 @@ export default function DashboardPage() {
               <div>Avg first quote: <b className="text-foreground">{m.avgFirstQuoteHours.toFixed(1)}h</b></div>
             </div>
             <Link href="/leads" className="text-muted-foreground block pt-1 text-xs underline-offset-2 hover:underline">
-              Open Leads and Enquiries →
+              Open Leads and Bookings →
             </Link>
           </CardContent>
         </Card>

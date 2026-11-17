@@ -31,7 +31,7 @@ const STAGE_TONE: Record<RequestStage, "secondary" | "warning" | "success" | "de
   lost: "destructive",
 };
 
-/** Requests, quotes and pre-sales routing for one customer. Opens from the Leads and Enquiries page. */
+/** Requests, quotes and pre-sales routing for one customer. Opens from the Leads and Bookings page. */
 export function RequestPanel({
   db,
   leadId,

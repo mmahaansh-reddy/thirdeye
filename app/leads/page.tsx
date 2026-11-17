@@ -83,7 +83,7 @@ export default function LeadsPage() {
   return (
     <>
       <PageHeader
-        title="Leads and Enquiries"
+        title="Leads and Bookings"
         description="Every customer from first enquiry to payment, tagged with the furthest stage reached. These counts drive the dashboard funnel. Only OTP-verified intake counts as a lead."
       >
         <Button onClick={() => setAdding(true)}>

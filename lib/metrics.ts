@@ -6,7 +6,7 @@ import { isOverdue } from "./workflow";
 import { funnelRows, funnelSteps } from "./funnel";
 
 export function dashboardMetrics(db: DB) {
-  // Funnel numbers come from the same rows that power the Leads and Enquiries page.
+  // Funnel numbers come from the same rows that power the Leads and Bookings page.
   const rows = funnelRows(db);
   const steps = funnelSteps(rows);
   const stepCount = (k: string) => steps.find((s) => s.key === k)?.value ?? 0;
