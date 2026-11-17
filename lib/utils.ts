@@ -30,3 +30,20 @@ export const uid = (prefix: string) =>
     .toString(36)
     .slice(2, 5)
     .toUpperCase()}`;
+
+export const formatDay = (iso: string) =>
+  new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+
+export const formatClock = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+
+/** "2d 4h", "3h 20m", "5m" */
+export function formatDuration(ms: number) {
+  const m = Math.max(0, Math.floor(ms / 60000));
+  const d = Math.floor(m / 1440);
+  const h = Math.floor((m % 1440) / 60);
+  const mm = m % 60;
+  if (d) return `${d}d ${h}h`;
+  if (h) return `${h}h ${mm}m`;
+  return `${mm}m`;
+}

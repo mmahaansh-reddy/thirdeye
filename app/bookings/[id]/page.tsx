@@ -8,7 +8,7 @@ import { actions, useDB } from "@/lib/store";
 import type { Booking, ChangeRequest, DB } from "@/lib/types";
 import { bookingFinance, tdsFor, vendorById } from "@/lib/finance";
 import { BOOKING_FLOW, BOOKING_STATUS_LABEL, MANUAL_TRANSITIONS } from "@/lib/workflow";
-import { cn, formatDate, formatINR } from "@/lib/utils";
+import { cn, formatClock, formatDate, formatDay, formatDuration, formatINR } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input, NativeSelect } from "@/components/ui/input";
@@ -45,7 +45,7 @@ export default function BookingDetailPage() {
         </Button>
       </PageHeader>
 
-      <Lifecycle b={b} />
+      <Lifecycle db={db} b={b} />
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <BookingStatusBadge status={b.status} />
@@ -105,21 +105,88 @@ export default function BookingDetailPage() {
   );
 }
 
-function Lifecycle({ b }: { b: Booking }) {
+/** Ticks so "time in stage" stays current without a refresh. Status changes themselves arrive instantly via the store. */
+function useNow(intervalMs: number) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(t);
+  }, [intervalMs]);
+  return now;
+}
+
+type StepState = "done" | "current" | "todo" | "skipped" | "cancelled";
+type Step = { key: string; label: string; entry?: Booking["statusHistory"][number]; state: StepState };
+
+function Lifecycle({ db, b }: { db: DB; b: Booking }) {
+  const now = useNow(30_000);
   const idx = BOOKING_FLOW.indexOf(b.status);
-  const at = (s: string) => [...b.statusHistory].reverse().find((h) => h.status === s)?.at;
-  if (b.status === "cancelled") return <Badge variant="destructive">Cancelled on {formatDate(at("cancelled"))}</Badge>;
+  const cancelled = b.status === "cancelled";
+  const entryFor = (s: string) => [...b.statusHistory].reverse().find((h) => h.status === s);
+
+  // When cancelled, show the steps that were reached, then a Cancelled end-point.
+  const lastReached = cancelled
+    ? Math.max(0, ...b.statusHistory.map((h) => BOOKING_FLOW.indexOf(h.status)))
+    : BOOKING_FLOW.length - 1;
+
+  const steps: Step[] = BOOKING_FLOW.slice(0, lastReached + 1).map((s, i): Step => {
+    const entry = entryFor(s);
+    let state: StepState;
+    if (cancelled) state = entry ? "done" : "skipped";
+    else if (i < idx) state = entry ? "done" : "skipped"; // skipped = e.g. paid in full, so no separate advance step
+    else if (i === idx) state = "current";
+    else state = "todo";
+    return { key: s as string, label: BOOKING_STATUS_LABEL[s], entry, state };
+  });
+  if (cancelled) {
+    const entry = entryFor("cancelled");
+    steps.push({ key: "cancelled", label: "Cancelled", entry, state: "cancelled" });
+  }
+
   return (
-    <div className="grid grid-cols-4 gap-2 md:grid-cols-8">
-      {BOOKING_FLOW.map((s, i) => (
-        <div key={s} className={cn("rounded-md border p-2 text-xs", i <= idx ? "border-primary bg-primary/5" : "opacity-60")}>
-          <div className="flex items-center gap-1 font-medium">
-            {i <= idx && <Check className="size-3" />}
-            {BOOKING_STATUS_LABEL[s]}
-          </div>
-          <div className="text-muted-foreground mt-0.5">{formatDate(at(s))}</div>
-        </div>
-      ))}
+    <div className="overflow-x-auto pb-1">
+      <ol className="flex min-w-[860px]">
+        {steps.map((st, i) => {
+          const last = i === steps.length - 1;
+          const reached = st.state === "done" || st.state === "current" || st.state === "cancelled";
+          const nextReached = !last && ["done", "current", "cancelled"].includes(steps[i + 1].state);
+          const prev = i > 0 ? steps[i - 1].entry : undefined;
+          return (
+            <li key={st.key} className="relative min-w-0 flex-1">
+              {!last && <span className={cn("absolute top-3 left-6 -right-0 h-0.5", nextReached ? "bg-primary" : "bg-border")} />}
+              <span
+                className={cn(
+                  "relative z-10 flex size-6 items-center justify-center rounded-full border-2",
+                  st.state === "done" && "border-primary bg-primary text-primary-foreground",
+                  st.state === "current" && "border-primary bg-background ring-primary/25 ring-4",
+                  st.state === "cancelled" && "border-destructive bg-destructive text-white",
+                  (st.state === "todo" || st.state === "skipped") && "border-border bg-background"
+                )}
+              >
+                {st.state === "done" && <Check className="size-3.5" />}
+                {st.state === "current" && <span className="bg-primary size-2 animate-pulse rounded-full" />}
+                {st.state === "cancelled" && <span className="text-xs leading-none">×</span>}
+              </span>
+              <div className={cn("mt-2 pr-3 text-xs", !reached && "opacity-60")}>
+                <div className={cn("text-sm leading-tight font-medium", st.state === "cancelled" && "text-destructive")}>{st.label}</div>
+                {st.entry ? (
+                  <>
+                    <div className="text-foreground mt-1 tabular-nums">{formatDay(st.entry.at)}</div>
+                    <div className="text-muted-foreground tabular-nums">{formatClock(st.entry.at)}</div>
+                    <div className="text-muted-foreground truncate">by {userName(db, st.entry.by)}</div>
+                    {prev && st.state !== "current" && (
+                      <div className="text-muted-foreground mt-0.5">+{formatDuration(new Date(st.entry.at).getTime() - new Date(prev.at).getTime())}</div>
+                    )}
+                    {st.state === "current" && <div className="text-primary mt-0.5 font-medium">In stage {formatDuration(now - new Date(st.entry.at).getTime())}</div>}
+                  </>
+                ) : (
+                  <div className="text-muted-foreground mt-1">{st.state === "skipped" ? "Skipped" : "Pending"}</div>
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
