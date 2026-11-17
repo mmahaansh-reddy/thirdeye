@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { Plus, ShieldCheck } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
-import type { Lead, LeadStatus } from "@/lib/types";
-import { STEPS, TAG_DEPTH, TAG_LABEL, funnelRows, funnelSteps, rowMatches, type FunnelTag, type StepFilter } from "@/lib/funnel";
+import type { DB, Lead, LeadStatus } from "@/lib/types";
+import { STEPS, TAG_DEPTH, TAG_LABEL, funnelRows, funnelSteps, rowMatches, type FunnelRow, type FunnelTag, type StepFilter } from "@/lib/funnel";
 import { cn, formatDate, formatINR } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,96 +122,93 @@ export default function LeadsPage() {
       {rows.length === 0 ? (
         <Empty>Nothing matches these filters.</Empty>
       ) : (
-        <Card className="mt-2 py-2">
-          <CardContent className="px-2">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Stage</TableHead>
-                  <TableHead>Progress</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Source</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Owner</TableHead>
-                  <TableHead className="text-right">Requests</TableHead>
-                  <TableHead className="text-right">Quotes</TableHead>
-                  <TableHead>Booking</TableHead>
-                  <TableHead className="text-right">Value</TableHead>
-                  <TableHead className="text-right">Received</TableHead>
-                  <TableHead>Captured</TableHead>
-                  <TableHead />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((r) => {
-                  const l = r.lead;
-                  const go = l.otpVerified && !l.duplicateOf ? () => setPanel({ leadId: l.id }) : undefined;
-                  return (
-                    <TableRow
-                      key={l.id}
-                      id={l.id}
-                      className={cn(go && "cursor-pointer")}
-                      tabIndex={go ? 0 : undefined}
-                      onClick={go}
-                      onKeyDown={go ? (e) => e.key === "Enter" && go() : undefined}
-                    >
-                      <TableCell>
-                        <Badge variant={TAG_TONE[r.tag]}>{TAG_LABEL[r.tag]}</Badge>
-                      </TableCell>
-                      <TableCell>
-                        <Progress depth={TAG_DEPTH[r.tag]} muted={r.tag === "lost" || r.tag === "duplicate"} />
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{l.customerName}</div>
-                        <div className="text-muted-foreground text-xs">
-                          {l.phone} · <span className="font-mono">{l.id}</span>
-                          {l.duplicateOf && ` · dup of ${l.duplicateOf}`}
-                        </div>
-                      </TableCell>
-                      <TableCell>{l.source}</TableCell>
-                      <TableCell onClick={(e) => e.stopPropagation()}>
-                        <NativeSelect className="h-8 w-32" value={l.status} onChange={(e) => run(actions.setLeadStatus(l.id, e.target.value as LeadStatus))}>
-                          {(["new", "contacted", "converted", "lost"] as LeadStatus[]).map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </NativeSelect>
-                      </TableCell>
-                      <TableCell>{userName(db, l.ownerId)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.requests || "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.quotes || "—"}</TableCell>
-                      <TableCell>
-                        {r.bookingIds.length
-                          ? r.bookingIds.map((id) => (
-                              <Link key={id} href={`/bookings/${id}`} onClick={(e) => e.stopPropagation()} className="mr-2 font-mono text-xs underline-offset-2 hover:underline">
-                                {id}
-                              </Link>
-                            ))
-                          : "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{r.value ? formatINR(r.value) : "—"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{r.received ? formatINR(r.received) : "—"}</TableCell>
-                      <TableCell className="text-muted-foreground text-xs">{formatDate(l.createdAt)}</TableCell>
-                      <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                        {!l.otpVerified && !l.duplicateOf && (
-                          <Button size="sm" variant="outline" onClick={() => run(actions.verifyOtp(l.id))}>
-                            <ShieldCheck /> Mark OTP verified
-                          </Button>
-                        )}
-                        {l.otpVerified && !l.duplicateOf && (
-                          <Button size="sm" variant="outline" onClick={() => setPanel({ leadId: l.id })}>
-                            Requests &amp; quotes{r.requests ? ` (${r.requests})` : ""}
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <>
+          {/* Wide screens: a compact table that fits the page width (no sideways scrolling). */}
+          <Card className="mt-2 hidden py-2 xl:block">
+            <CardContent className="px-2">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="whitespace-normal">Stage</TableHead>
+                    <TableHead className="whitespace-normal">Customer</TableHead>
+                    <TableHead className="whitespace-normal">Requests · quotes · booking</TableHead>
+                    <TableHead className="text-right whitespace-normal">Value / received</TableHead>
+                    <TableHead className="whitespace-normal">Captured</TableHead>
+                    <TableHead className="whitespace-normal">Status / action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rows.map((r) => {
+                    const l = r.lead;
+                    const open = canOpen(l) ? () => setPanel({ leadId: l.id }) : undefined;
+                    return (
+                      <TableRow
+                        key={l.id}
+                        id={l.id}
+                        className={cn(open && "cursor-pointer")}
+                        tabIndex={open ? 0 : undefined}
+                        onClick={open}
+                        onKeyDown={open ? (e) => e.key === "Enter" && open() : undefined}
+                      >
+                        <TableCell className="align-top whitespace-normal">
+                          <StageCell r={r} />
+                        </TableCell>
+                        <TableCell className="align-top whitespace-normal">
+                          <CustomerCell db={db} r={r} />
+                        </TableCell>
+                        <TableCell className="align-top whitespace-normal">
+                          <PipelineCell r={r} />
+                        </TableCell>
+                        <TableCell className="text-right align-top whitespace-normal tabular-nums">
+                          <MoneyCell r={r} />
+                        </TableCell>
+                        <TableCell className="text-muted-foreground align-top text-xs whitespace-normal">{formatDate(l.createdAt)}</TableCell>
+                        <TableCell className="align-top whitespace-normal" onClick={(e) => e.stopPropagation()}>
+                          <RowControls r={r} run={run} onOpen={() => setPanel({ leadId: l.id })} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Narrower screens (tablet / phone): one card per customer. */}
+          <div className="mt-2 grid gap-3 md:grid-cols-2 xl:hidden">
+            {rows.map((r) => {
+              const l = r.lead;
+              const open = canOpen(l) ? () => setPanel({ leadId: l.id }) : undefined;
+              return (
+                <Card
+                  key={l.id}
+                  id={l.id}
+                  className={cn("gap-3", open && "hover:border-ring cursor-pointer transition-colors")}
+                  tabIndex={open ? 0 : undefined}
+                  onClick={open}
+                  onKeyDown={open ? (e) => e.key === "Enter" && open() : undefined}
+                >
+                  <CardContent className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <StageCell r={r} />
+                      <span className="text-muted-foreground shrink-0 text-xs">{formatDate(l.createdAt)}</span>
+                    </div>
+                    <CustomerCell db={db} r={r} />
+                    <div className="flex flex-wrap items-end justify-between gap-3 text-sm">
+                      <PipelineCell r={r} />
+                      <div className="text-right tabular-nums">
+                        <MoneyCell r={r} />
+                      </div>
+                    </div>
+                    <div onClick={(e) => e.stopPropagation()}>
+                      <RowControls r={r} run={run} onOpen={() => setPanel({ leadId: l.id })} />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </>
       )}
       <p className="text-muted-foreground mt-3 text-xs">
         Click a customer to open their requests, quotes and pre-sales routing. Funnel steps are cumulative: a fully paid customer also counts as booked, quoted, request raised and lead. The tag on each row is the furthest stage
@@ -221,6 +218,91 @@ export default function LeadsPage() {
       <AddLeadDialog open={adding} onOpenChange={setAdding} />
       <RequestPanel db={db} leadId={panel?.leadId ?? null} initialRequestId={panel?.requestId} onClose={closePanel} />
     </>
+  );
+}
+
+/** Only verified, non-duplicate customers have a requests & quotes panel. */
+const canOpen = (l: Lead) => l.otpVerified && !l.duplicateOf;
+
+function StageCell({ r }: { r: FunnelRow }) {
+  return (
+    <div className="space-y-1.5">
+      <Badge variant={TAG_TONE[r.tag]}>{TAG_LABEL[r.tag]}</Badge>
+      <Progress depth={TAG_DEPTH[r.tag]} muted={r.tag === "lost" || r.tag === "duplicate"} />
+    </div>
+  );
+}
+
+function CustomerCell({ db, r }: { db: DB; r: FunnelRow }) {
+  const l = r.lead;
+  return (
+    <div>
+      <div className="font-medium">{l.customerName}</div>
+      <div className="text-muted-foreground text-xs">
+        {l.phone} · <span className="font-mono">{l.id}</span>
+        {l.duplicateOf && ` · dup of ${l.duplicateOf}`}
+      </div>
+      <div className="text-muted-foreground text-xs">
+        {l.source} · {userName(db, l.ownerId)}
+      </div>
+    </div>
+  );
+}
+
+function PipelineCell({ r }: { r: FunnelRow }) {
+  return (
+    <div className="space-y-0.5 text-sm">
+      <div className="text-muted-foreground text-xs">
+        Requests <b className="text-foreground tabular-nums">{r.requests || "—"}</b> · Quotes <b className="text-foreground tabular-nums">{r.quotes || "—"}</b>
+      </div>
+      <div className="flex flex-wrap gap-x-2">
+        {r.bookingIds.length ? (
+          r.bookingIds.map((id) => (
+            <Link key={id} href={`/bookings/${id}`} onClick={(e) => e.stopPropagation()} className="font-mono text-xs underline-offset-2 hover:underline">
+              {id}
+            </Link>
+          ))
+        ) : (
+          <span className="text-muted-foreground text-xs">No booking</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function MoneyCell({ r }: { r: FunnelRow }) {
+  return r.value ? (
+    <>
+      <div>{formatINR(r.value)}</div>
+      <div className="text-muted-foreground text-xs">{formatINR(r.received)} received</div>
+    </>
+  ) : (
+    <span className="text-muted-foreground">—</span>
+  );
+}
+
+function RowControls({ r, run, onOpen }: { r: FunnelRow; run: ReturnType<typeof useAction>["run"]; onOpen: () => void }) {
+  const l = r.lead;
+  return (
+    <div className="flex flex-wrap items-center gap-2 xl:flex-col xl:items-stretch">
+      <NativeSelect className="h-8 w-32 xl:w-full" value={l.status} onChange={(e) => run(actions.setLeadStatus(l.id, e.target.value as LeadStatus))}>
+        {(["new", "contacted", "converted", "lost"] as LeadStatus[]).map((st) => (
+          <option key={st} value={st}>
+            {st}
+          </option>
+        ))}
+      </NativeSelect>
+      {!l.otpVerified && !l.duplicateOf && (
+        <Button size="sm" variant="outline" onClick={() => run(actions.verifyOtp(l.id))}>
+          <ShieldCheck /> Mark OTP verified
+        </Button>
+      )}
+      {canOpen(l) && (
+        <Button size="sm" variant="outline" onClick={onOpen}>
+          Requests &amp; quotes{r.requests ? ` (${r.requests})` : ""}
+        </Button>
+      )}
+    </div>
   );
 }
 
