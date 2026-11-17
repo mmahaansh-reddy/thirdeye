@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { useDB } from "@/lib/store";
 import { actions } from "@/lib/store";
+import { changeRequestValues } from "@/lib/finance";
 import type { Booking, ChangeRequest, ChangeRequestStatus, DB, LineItem } from "@/lib/types";
 import { cn, formatDate, formatINR } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -162,6 +163,12 @@ function crColumns(db: DB): Column<ChangeRequest>[] {
       cell: (c) => (
         <>
           <div>{formatINR(c.valueDelta)}</div>
+          <div className="text-muted-foreground text-xs">
+            {(() => {
+              const v = changeRequestValues(db.bookings.find((x) => x.id === c.bookingId), c);
+              return `${formatINR(v.before)} → ${formatINR(v.after)}`;
+            })()}
+          </div>
           <div className={cn("text-xs", c.marginDelta < 0 ? "text-destructive" : "text-muted-foreground")}>margin {formatINR(c.marginDelta)}</div>
         </>
       ),

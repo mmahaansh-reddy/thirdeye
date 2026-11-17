@@ -148,6 +148,8 @@ export interface ChangeRequest {
   proposedItems: LineItem[];
   valueDelta: number;
   marginDelta: number;
+  /** Booking value (incl. GST) at the moment this change was raised. Older records may not have it. */
+  baseGross?: number;
   status: ChangeRequestStatus;
   createdBy: string;
   createdAt: string;

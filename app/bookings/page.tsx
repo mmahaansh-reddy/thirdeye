@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useDB } from "@/lib/store";
 import type { Booking, BookingStatus } from "@/lib/types";
-import { bookingFinance } from "@/lib/finance";
+import { bookingFinance, originalValue } from "@/lib/finance";
 import { BOOKING_FLOW, BOOKING_STATUS_LABEL } from "@/lib/workflow";
 import { useNow } from "@/lib/use-now";
 import { cn, formatDate, formatDuration, formatINR, formatPct } from "@/lib/utils";
@@ -90,6 +90,7 @@ export default function BookingsPage() {
           <>
             <div>{formatINR(f.booked.gross)}</div>
             <div className="text-muted-foreground text-xs">{formatINR(f.received)} received</div>
+            {b.version > 1 && <div className="text-muted-foreground text-xs">original {formatINR(originalValue(b).gross)}</div>}
           </>
         );
       },

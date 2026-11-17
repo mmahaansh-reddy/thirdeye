@@ -336,7 +336,7 @@ export const actions = {
       const after = totals(proposedItems);
       const id = uid("CR");
       db.changeRequests.unshift({
-        id, bookingId, raisedBy, description, proposedItems, valueDelta: after.sell - before.sell, marginDelta: after.margin - before.margin,
+        id, bookingId, raisedBy, description, proposedItems, valueDelta: after.sell - before.sell, marginDelta: after.margin - before.margin, baseGross: before.gross,
         status: "pending", createdBy: db.settings.currentUserId, createdAt: now(),
       });
       log(db, `Change request raised by ${raisedBy}: ${description}`, "change_request", id);

@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
 import type { Booking, ChangeRequest, DB } from "@/lib/types";
-import { bookingFinance, tdsFor, vendorById } from "@/lib/finance";
+import { bookingFinance, changeRequestValues, originalValue, tdsFor, vendorById } from "@/lib/finance";
 import { BOOKING_FLOW, BOOKING_STATUS_LABEL, MANUAL_TRANSITIONS } from "@/lib/workflow";
 import { cn, formatClock, formatDate, formatDay, formatDuration, formatINR } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,40 @@ export default function BookingDetailPage() {
       <div className="mt-2">
         <ErrorText error={error} />
       </div>
+
+      <Card className="mt-4 py-4">
+        <CardContent>
+          <div className="text-muted-foreground mb-2 text-xs font-medium tracking-wide uppercase">Booking value (what the customer pays, incl. GST)</div>
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <div className="text-muted-foreground text-xs">Original value · v1 (before any change request)</div>
+              <div className="text-2xl font-semibold tabular-nums">{formatINR(originalValue(b).gross)}</div>
+              <div className="text-muted-foreground text-xs">
+                {formatINR(originalValue(b).sell)} + GST {formatINR(originalValue(b).gst)} · set {formatDay(b.versions[0]?.at ?? b.createdAt)}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground text-xs">Approved changes · {b.version - 1}</div>
+              <div className={cn("text-2xl font-semibold tabular-nums", f.booked.gross - originalValue(b).gross < 0 && "text-destructive")}>
+                {f.booked.gross - originalValue(b).gross >= 0 ? "+" : "−"}
+                {formatINR(Math.abs(f.booked.gross - originalValue(b).gross))}
+              </div>
+              <div className="text-muted-foreground text-xs">
+                {crs.filter((c) => c.status === "pending").length
+                  ? `${crs.filter((c) => c.status === "pending").length} pending, not included`
+                  : "none pending"}
+              </div>
+            </div>
+            <div>
+              <div className="text-muted-foreground text-xs">Current value · v{b.version}</div>
+              <div className="text-2xl font-semibold tabular-nums">{formatINR(f.booked.gross)}</div>
+              <div className="text-muted-foreground text-xs">
+                {formatINR(f.booked.sell)} + GST {formatINR(f.booked.gst)}
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Money label="Quoted margin" value={f.quoted.margin} hint="at quote acceptance" />
@@ -279,6 +313,15 @@ function ChangeRequests({ db, b, crs }: { db: DB; b: Booking; crs: ChangeRequest
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
+            {(() => {
+              const v = changeRequestValues(b, c);
+              return (
+                <div className="text-sm">
+                  Booking value: <b className="tabular-nums">{formatINR(v.before)}</b> → <b className="tabular-nums">{formatINR(v.after)}</b>
+                  <span className="text-muted-foreground"> (incl. GST, {c.status === "approved" ? "applied" : "if approved"})</span>
+                </div>
+              );
+            })()}
             <div className="flex gap-6 text-sm">
               <span>Value Δ <b className="tabular-nums">{formatINR(c.valueDelta)}</b></span>
               <span>Margin Δ <b className={cn("tabular-nums", c.marginDelta < 0 && "text-destructive")}>{formatINR(c.marginDelta)}</b></span>

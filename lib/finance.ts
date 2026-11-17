@@ -74,3 +74,21 @@ export function tdsFor(vendor: Vendor | undefined, gross: number) {
   const tds = Math.round((gross * (vendor?.tdsRate ?? 0)) / 100);
   return { tds, net: gross - tds };
 }
+
+/** What the customer was asked to pay at the start: version 1 of the booking, before any change request. */
+export function originalValue(b: Booking): Totals {
+  return totals(b.versions[0]?.items ?? b.items);
+}
+
+/** Booking value (incl. GST) before and after a change request. */
+export function changeRequestValues(b: Booking | undefined, c: { id: string; status: string; proposedItems: LineItem[]; baseGross?: number }) {
+  const after = totals(c.proposedItems).gross;
+  let before: number;
+  if (b && c.status === "approved") {
+    const i = b.versions.findIndex((v) => v.changeRequestId === c.id);
+    before = i > 0 ? totals(b.versions[i - 1].items).gross : c.baseGross ?? totals(b.items).gross;
+  } else {
+    before = c.baseGross ?? (b ? totals(b.items).gross : 0);
+  }
+  return { before, after };
+}
