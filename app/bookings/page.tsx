@@ -18,12 +18,17 @@ export default function BookingsPage() {
   const router = useRouter();
   const now = useNow(30_000);
   const [stage, setStage] = useState<"all" | "active" | BookingStatus>("all");
+  const [showLost, setShowLost] = useState(false);
   if (!db) return <Loading />;
 
   // Active = anything not yet closed or cancelled.
   const isActive = (b: Booking) => b.status !== "closed" && b.status !== "cancelled";
   const stages: BookingStatus[] = [...BOOKING_FLOW, "cancelled"];
-  const shown = db.bookings.filter((b) => (stage === "all" ? true : stage === "active" ? isActive(b) : b.status === stage));
+  // Bookings whose customer is marked "lost" on the Leads and Bookings page are hidden here (unless revealed below).
+  const isLost = (b: Booking) => db.leads.find((l) => l.id === b.leadId)?.status === "lost";
+  const hidden = db.bookings.filter(isLost);
+  const visible = showLost ? db.bookings : db.bookings.filter((b) => !isLost(b));
+  const shown = visible.filter((b) => (stage === "all" ? true : stage === "active" ? isActive(b) : b.status === stage));
 
   const columns: Column<Booking>[] = [
     {
@@ -123,21 +128,29 @@ export default function BookingsPage() {
   return (
     <>
       <PageHeader title="Ongoing Bookings" description="Created only from an accepted quote. Changes go through versioned change requests." />
-      {db.bookings.length > 0 && (
+      {visible.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
-          <Chip active={stage === "all"} onClick={() => setStage("all")} label="All" n={db.bookings.length} />
-          <Chip active={stage === "active"} onClick={() => setStage("active")} label="Active" n={db.bookings.filter(isActive).length} />
+          <Chip active={stage === "all"} onClick={() => setStage("all")} label="All" n={visible.length} />
+          <Chip active={stage === "active"} onClick={() => setStage("active")} label="Active" n={visible.filter(isActive).length} />
           {stages.map((s) => (
-            <Chip key={s} active={stage === s} onClick={() => setStage(s)} label={BOOKING_STATUS_LABEL[s]} n={db.bookings.filter((b) => b.status === s).length} />
+            <Chip key={s} active={stage === s} onClick={() => setStage(s)} label={BOOKING_STATUS_LABEL[s]} n={visible.filter((b) => b.status === s).length} />
           ))}
         </div>
       )}
-      {db.bookings.length === 0 ? (
-        <Empty>No bookings yet. Accept a quote to create one.</Empty>
+      {visible.length === 0 ? (
+        <Empty>{db.bookings.length === 0 ? "No bookings yet. Accept a quote to create one." : "No ongoing bookings. All remaining bookings belong to customers marked lost."}</Empty>
       ) : shown.length === 0 ? (
         <Empty>No bookings at this stage.</Empty>
       ) : (
         <DataList rows={shown} columns={columns} rowKey={(b) => b.id} onRowClick={(b) => router.push(`/bookings/${b.id}`)} breakpoint="xl" />
+      )}
+      {hidden.length > 0 && (
+        <p className="text-muted-foreground mt-3 text-xs">
+          {hidden.length} booking{hidden.length === 1 ? " is" : "s are"} {showLost ? "shown" : "hidden"} because the customer is marked lost on the Leads and Bookings page.{" "}
+          <button className="underline underline-offset-2" onClick={() => setShowLost(!showLost)}>
+            {showLost ? "Hide them" : "Show them"}
+          </button>
+        </p>
       )}
     </>
   );
