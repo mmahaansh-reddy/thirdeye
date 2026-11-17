@@ -105,7 +105,7 @@ All types are in `lib/types.ts`.
 app/
   page.tsx                 Founder dashboard
   leads/                   Leads and Bookings: customers tagged by furthest stage, filters, intake + verify; click a customer for requests, quotes, pre-sales routing
-  bookings/                List: owner, pre-sales assignee, live stage + time in stage
+  bookings/                Ongoing Bookings list: owner, pre-sales assignee, live stage + time in stage
   bookings/ [id]/          Lifecycle, payments, change requests, vendor invoices/payouts, history
   change-requests/         Raise change requests (linked to an existing booking) + list of all of them
   vendors/                 Vendor master and approvals

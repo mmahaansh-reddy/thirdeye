@@ -115,7 +115,7 @@ export default function BookingsPage() {
 
   return (
     <>
-      <PageHeader title="Bookings" description="Created only from an accepted quote. Changes go through versioned change requests." />
+      <PageHeader title="Ongoing Bookings" description="Created only from an accepted quote. Changes go through versioned change requests." />
       {db.bookings.length === 0 ? (
         <Empty>No bookings yet. Accept a quote to create one.</Empty>
       ) : (
