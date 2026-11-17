@@ -2,21 +2,28 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useDB } from "@/lib/store";
-import type { Booking } from "@/lib/types";
+import type { Booking, BookingStatus } from "@/lib/types";
 import { bookingFinance } from "@/lib/finance";
-import { BOOKING_FLOW } from "@/lib/workflow";
+import { BOOKING_FLOW, BOOKING_STATUS_LABEL } from "@/lib/workflow";
 import { useNow } from "@/lib/use-now";
 import { cn, formatDate, formatDuration, formatINR, formatPct } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { DataList, type Column } from "@/components/data-list";
-import { BookingStatusBadge, Empty, Loading, PageHeader, userName } from "@/components/common";
+import { BookingStatusBadge, Chip, Empty, Loading, PageHeader, userName } from "@/components/common";
 
 export default function BookingsPage() {
   const db = useDB();
   const router = useRouter();
   const now = useNow(30_000);
+  const [stage, setStage] = useState<"all" | "active" | BookingStatus>("all");
   if (!db) return <Loading />;
+
+  // Active = anything not yet closed or cancelled.
+  const isActive = (b: Booking) => b.status !== "closed" && b.status !== "cancelled";
+  const stages: BookingStatus[] = [...BOOKING_FLOW, "cancelled"];
+  const shown = db.bookings.filter((b) => (stage === "all" ? true : stage === "active" ? isActive(b) : b.status === stage));
 
   const columns: Column<Booking>[] = [
     {
@@ -116,10 +123,21 @@ export default function BookingsPage() {
   return (
     <>
       <PageHeader title="Ongoing Bookings" description="Created only from an accepted quote. Changes go through versioned change requests." />
+      {db.bookings.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <Chip active={stage === "all"} onClick={() => setStage("all")} label="All" n={db.bookings.length} />
+          <Chip active={stage === "active"} onClick={() => setStage("active")} label="Active" n={db.bookings.filter(isActive).length} />
+          {stages.map((s) => (
+            <Chip key={s} active={stage === s} onClick={() => setStage(s)} label={BOOKING_STATUS_LABEL[s]} n={db.bookings.filter((b) => b.status === s).length} />
+          ))}
+        </div>
+      )}
       {db.bookings.length === 0 ? (
         <Empty>No bookings yet. Accept a quote to create one.</Empty>
+      ) : shown.length === 0 ? (
+        <Empty>No bookings at this stage.</Empty>
       ) : (
-        <DataList rows={db.bookings} columns={columns} rowKey={(b) => b.id} onRowClick={(b) => router.push(`/bookings/${b.id}`)} breakpoint="xl" />
+        <DataList rows={shown} columns={columns} rowKey={(b) => b.id} onRowClick={(b) => router.push(`/bookings/${b.id}`)} breakpoint="xl" />
       )}
     </>
   );

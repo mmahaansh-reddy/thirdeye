@@ -14,7 +14,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { RequestPanel } from "@/components/request-panel";
-import { Empty, ErrorText, Field, Loading, PageHeader, useAction, userName } from "@/components/common";
+import { Chip, Empty, ErrorText, Field, Loading, PageHeader, useAction, userName } from "@/components/common";
 
 const SOURCES = ["LeadSquared", "Zoho CRM", "Website", "Meta Ads", "Referral", "Walk-in / Phone"];
 
@@ -303,17 +303,6 @@ function RowControls({ r, run, onOpen }: { r: FunnelRow; run: ReturnType<typeof 
         </Button>
       )}
     </div>
-  );
-}
-
-function Chip({ label, n, active, onClick }: { label: string; n: number; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn("rounded-full border px-3 py-1 text-sm transition-colors", active ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent")}
-    >
-      {label} <span className={cn("ml-1 tabular-nums", active ? "opacity-80" : "text-muted-foreground")}>{n}</span>
-    </button>
   );
 }
 

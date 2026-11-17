@@ -131,3 +131,15 @@ export function Field({ label, children }: { label: string; children: React.Reac
     </div>
   );
 }
+
+/** Pill-shaped filter button with a count, used for stage filters. */
+export function Chip({ label, n, active, onClick }: { label: string; n: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn("rounded-full border px-3 py-1 text-sm transition-colors", active ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent")}
+    >
+      {label} <span className={cn("ml-1 tabular-nums", active ? "opacity-80" : "text-muted-foreground")}>{n}</span>
+    </button>
+  );
+}
