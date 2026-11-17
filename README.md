@@ -35,6 +35,7 @@ A web app that is the **single source of truth** for leads, quotes, bookings, ch
 | Rules are enforced in the data layer | Every action checks permissions and business rules; violations throw `Blocked` and are written to the audit log | The UI can't get around rules. Founders can see who tried what. |
 | Follow-ups are generated from data | `syncTasks()` runs after every change and reconciles tasks with current data | No one has to remember to create follow-ups. Completed steps close their tasks automatically. |
 | Leads and Enquiries page | One page, one row per customer (unique lead/enquiry), tagged with the furthest stage reached (Enquiry, Lead, Request raised, Quoted, Booked, Fully paid, Lost, Duplicate). Funnel steps are cumulative. | The **dashboard funnel graph reads the same rows** (`lib/funnel.ts`), so the page chips and the dashboard bars always match. Clicking a dashboard bar opens the page filtered to that step. |
+| No separate Requests page | Requests, quotes and pre-sales routing live in a panel opened from a customer on Leads and Enquiries. Old `/requests` links redirect there. | One place for the customer journey. Accepting a quote still creates the booking. |
 | Lead definition | OTP-verified **and** not a duplicate | Matches the business definition. Enquiries keep their own conversion figures. |
 | Duplicate detection | Same 10-digit phone number = duplicate of the first record | Simple and predictable. Can be extended with email or fuzzy name matching. |
 | Three margins per booking | **Quoted** (accepted quote) → **Booked** (after approved changes) → **Realised** (booked sell − actual vendor invoices) | Splits "margin promised" from "margin earned". The gap shows where inflated numbers are. |
@@ -102,8 +103,8 @@ All types are in `lib/types.ts`.
 ```
 app/
   page.tsx                 Founder dashboard
-  leads/                   Leads and Enquiries: every customer tagged by furthest stage, filters, intake + verify actions
-  requests/ [id]/          Requests, quotes, pre-sales routing
+  leads/                   Leads and Enquiries: customers tagged by furthest stage, filters, intake + verify; click a customer for requests, quotes, pre-sales routing
+  bookings/                List: owner, pre-sales assignee, live stage + time in stage
   bookings/ [id]/          Lifecycle, payments, change requests, vendor invoices/payouts, history
   change-requests/         Raise change requests (linked to an existing booking) + list of all of them
   vendors/                 Vendor master and approvals
@@ -139,7 +140,7 @@ The app loads with demo data. Use **Reset demo data** in the sidebar to restore 
 
 ### Try these flows
 1. **Leads and Enquiries →** capture an intake without OTP → it is tagged *Enquiry*. Try raising a request (blocked), then *Mark OTP verified*.
-2. **Requests →** act as *Meera (Seller)* and route to pre-sales → blocked and logged. Switch to *Asha (Sales)* → allowed.
+2. **Leads and Enquiries →** click a customer → *Requests & quotes* panel: act as *Meera (Seller)* and route to pre-sales → blocked and logged. Switch to *Asha (Sales)* → allowed.
 3. **New quote** using *QuickDeals (unverified)* → blocked unless you're Admin and give a reason.
 4. **Accept a quote →** booking created → act as Seller to accept → confirm → record payments → status updates automatically.
 5. **Change request →** go to **Change Requests → Raise change request**, pick an existing booking, edit the lines → open the booking's *Change requests* tab (read-only) → approve as Admin → booking moves to v2 with value and margin change. The Change Requests page lists every change; full details are viewable only inside the booking and can't be edited.
