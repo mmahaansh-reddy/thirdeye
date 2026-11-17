@@ -94,10 +94,10 @@ export function entityHref(db: DB, type: EntityType, id: string): string | null 
     case "lead":
       return `/leads#${id}`;
     case "request":
-      return `/requests/${id}`;
+      return `/leads?request=${id}`;
     case "quote": {
       const q = db.quotes.find((x) => x.id === id);
-      return q ? `/requests/${q.requestId}` : null;
+      return q ? `/leads?request=${q.requestId}` : null;
     }
     case "booking":
       return `/bookings/${id}`;

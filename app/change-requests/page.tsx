@@ -142,7 +142,7 @@ export default function ChangeRequestsPage() {
                       </TableCell>
                       <TableCell>
                         {req ? (
-                          <Link href={`/requests/${req.id}`} onClick={(e) => e.stopPropagation()} className="font-mono text-xs underline-offset-2 hover:underline">
+                          <Link href={`/leads?request=${req.id}`} onClick={(e) => e.stopPropagation()} className="font-mono text-xs underline-offset-2 hover:underline">
                             {req.id}
                           </Link>
                         ) : (

@@ -46,8 +46,6 @@ export interface FunnelRow {
   requestIds: string[];
   value: number; // booked value incl. GST on live bookings
   received: number;
-  /** Most advanced record to open (booking, else request); null while still at intake. */
-  href: string | null;
 }
 
 const PAID_INDEX = BOOKING_FLOW.indexOf("fully_paid");
@@ -90,7 +88,6 @@ export function funnelRows(db: DB): FunnelRow[] {
       requestIds,
       value: fin.reduce((s, f) => s + f.booked.gross, 0),
       received: fin.reduce((s, f) => s + f.received, 0),
-      href: bookings[0] ? `/bookings/${bookings[0].id}` : requests[0] ? `/requests/${requests[0].id}` : null,
     };
   });
 }

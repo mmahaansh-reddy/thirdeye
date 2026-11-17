@@ -16,6 +16,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BookingStatusBadge, Empty, ErrorText, Field, Loading, PageHeader, useAction, userName } from "@/components/common";
 import { LineItemsTable } from "@/components/line-items-editor";
+import { useNow } from "@/lib/use-now";
 
 export default function BookingDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -41,7 +42,7 @@ export default function BookingDetailPage() {
         description={`${lead?.customerName ?? ""} · ${req?.title ?? ""} · owner ${userName(db, b.ownerId)} · version v${b.version}`}
       >
         <Button asChild variant="outline">
-          <Link href={`/requests/${b.requestId}`}>Request {b.requestId}</Link>
+          <Link href={`/leads?request=${b.requestId}`}>Request {b.requestId}</Link>
         </Button>
       </PageHeader>
 
@@ -103,16 +104,6 @@ export default function BookingDetailPage() {
       </Tabs>
     </>
   );
-}
-
-/** Ticks so "time in stage" stays current without a refresh. Status changes themselves arrive instantly via the store. */
-function useNow(intervalMs: number) {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), intervalMs);
-    return () => clearInterval(t);
-  }, [intervalMs]);
-  return now;
 }
 
 type StepState = "done" | "current" | "todo" | "skipped" | "cancelled";
