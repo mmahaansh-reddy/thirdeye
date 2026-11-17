@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { actions, useDB } from "@/lib/store";
+import { actions, currentUser, useDB } from "@/lib/store";
 import { AUTOMATION_RULES, isOverdue } from "@/lib/workflow";
 import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -56,10 +56,13 @@ export default function TasksPage() {
   const [who, setWho] = useState("");
   if (!db) return <Loading />;
 
+  // Only the founder sees everyone's follow-ups; everyone else sees their own.
+  const me = currentUser(db);
+  const isFounder = me.role === "admin";
   const label = (ruleId: string) => AUTOMATION_RULES.find((r) => r.id === ruleId)?.label ?? "Manual";
   const rows = db.tasks
     .filter((t) => (filter === "all" ? true : filter === "overdue" ? isOverdue(t) : t.status === "open"))
-    .filter((t) => assignee === "all" || t.assigneeId === assignee)
+    .filter((t) => (isFounder ? assignee === "all" || t.assigneeId === assignee : t.assigneeId === me.id))
     .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
 
   return (
@@ -74,14 +77,16 @@ export default function TasksPage() {
           <option value="overdue">Overdue</option>
           <option value="all">All (incl. closed)</option>
         </NativeSelect>
-        <NativeSelect className="w-52" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-          <option value="all">Everyone</option>
-          {db.users.map((u) => (
-            <option key={u.id} value={u.id}>
-              {u.name}
-            </option>
-          ))}
-        </NativeSelect>
+        {isFounder && (
+          <NativeSelect className="w-52" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
+            <option value="all">Everyone</option>
+            {db.users.map((u) => (
+              <option key={u.id} value={u.id}>
+                {u.name}
+              </option>
+            ))}
+          </NativeSelect>
+        )}
       </div>
       <ErrorText error={error} />
       {rows.length === 0 ? (

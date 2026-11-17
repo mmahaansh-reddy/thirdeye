@@ -24,7 +24,8 @@ export default function BookingDetailPage() {
   const { error, run } = useAction();
   const [tab, setTab] = useState("items");
   useEffect(() => {
-    if (window.location.hash === "#changes") setTab("changes");
+    const h = window.location.hash.slice(1);
+    if (["items", "payments", "changes", "vendors", "history"].includes(h)) setTab(h);
   }, []);
   if (!db) return <Loading />;
   const b = db.bookings.find((x) => x.id === id);

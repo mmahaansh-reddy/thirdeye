@@ -38,6 +38,8 @@ A web app that is the **single source of truth** for leads, quotes, bookings, ch
 | No separate Requests page | Requests, quotes and pre-sales routing live in a panel opened from a customer on Leads and Bookings. Old `/requests` links redirect there. | One place for the customer journey. Accepting a quote still creates the booking. |
 | Ongoing Bookings visibility | Hides bookings whose customer is marked lost on Leads and Bookings; a footnote shows how many and lets you reveal them. | Keeps the list to live business. Money already received on a hidden booking is still counted in Finance and the dashboard. |
 | Original booking value | Booking page shows Original value (v1), approved changes and Current value (all incl. GST) at the top; each change request shows "booking value X → Y". | The starting value is stated outright instead of having to be inferred from the Versions list. |
+| Role-based views | Switching the user shows only that role's pages and sends them to their home page; opening any other page shows "No access". The Founder (admin) sees everything. Follow-ups are limited to your own tasks for non-founders. Config in `lib/access.ts`. | Front-end only for now (a person could still switch user). Real enforcement comes with login and the database. |
+| Finance Desk | New home page for Finance: money to collect, invoices to record, payouts due, vendors awaiting approval, margin alerts, bookings ready to close. Each row opens the right tab of the booking. | Finance works from queues, not by hunting through bookings. |
 | Responsive lists | List pages use `components/data-list.tsx`: a wrapping table on wide screens and one card per row on smaller ones, so nothing scrolls sideways. | Works on laptops, tablets and phones. Pages with many numbers group related figures into one cell (e.g. value / received). |
 | Lead definition | OTP-verified **and** not a duplicate | Matches the business definition. Enquiries keep their own conversion figures. |
 | Duplicate detection | Same 10-digit phone number = duplicate of the first record | Simple and predictable. Can be extended with email or fuzzy name matching. |
@@ -49,6 +51,8 @@ A web app that is the **single source of truth** for leads, quotes, bookings, ch
 | Currency and locale | INR, `en-IN` formatting, IST in the browser | Indian business. |
 
 ### Roles and permissions
+
+**Pages by role** (change in `lib/access.ts`): Founder: all. Finance: Finance Desk, Finance & Margins, Ongoing Bookings, Vendors, Change Requests, Follow-ups. Sales: Leads and Bookings, Ongoing Bookings, Change Requests, Follow-ups. Pre-sales: Leads and Bookings, Follow-ups. Seller: Ongoing Bookings, Follow-ups.
 
 | Action | Allowed roles |
 |---|---|
@@ -111,6 +115,7 @@ app/
   bookings/ [id]/          Lifecycle, payments, change requests, vendor invoices/payouts, history
   change-requests/         Raise change requests (linked to an existing booking) + list of all of them
   vendors/                 Vendor master and approvals
+  finance-desk/            Finance team home: work queues
   finance/                 Per-booking ledger: 3 margins, GST, TDS, payables
   tasks/                   Follow-ups (auto + manual)
   audit/                   Audit log (info / overrides / blocked)
