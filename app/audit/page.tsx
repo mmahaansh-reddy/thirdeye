@@ -2,12 +2,36 @@
 
 import { useState } from "react";
 import { useDB } from "@/lib/store";
+import type { AuditEntry, DB } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { NativeSelect } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { EntityLink, Loading, PageHeader, userName } from "@/components/common";
+import { DataList, type Column } from "@/components/data-list";
+import { Empty, EntityLink, Loading, PageHeader, userName } from "@/components/common";
+
+function auditColumns(db: DB): Column<AuditEntry>[] {
+  return [
+    { header: "When", card: "title", cell: (a) => <span className="text-muted-foreground text-xs">{formatDate(a.at)}</span> },
+    { header: "Who", cell: (a) => userName(db, a.actorId) },
+    {
+      header: "Action",
+      card: "full",
+      cell: (a) => (
+        <div>
+          {a.action}
+          {a.details && <div className="text-muted-foreground text-xs">{a.details}</div>}
+        </div>
+      ),
+    },
+    { header: "Record", cell: (a) => <EntityLink db={db} type={a.entityType} id={a.entityId} /> },
+    {
+      header: "Severity",
+      cell: (a) => (
+        <Badge variant={a.severity === "blocked" ? "destructive" : a.severity === "warning" ? "warning" : "secondary"}>{a.severity ?? "info"}</Badge>
+      ),
+    },
+  ];
+}
 
 export default function AuditPage() {
   const db = useDB();
@@ -24,41 +48,7 @@ export default function AuditPage() {
           <option value="info">Info</option>
         </NativeSelect>
       </PageHeader>
-      <Card className="py-2">
-        <CardContent className="px-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>When</TableHead>
-                <TableHead>Who</TableHead>
-                <TableHead>Action</TableHead>
-                <TableHead>Record</TableHead>
-                <TableHead>Severity</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((a) => (
-                <TableRow key={a.id}>
-                  <TableCell className="text-muted-foreground text-xs">{formatDate(a.at)}</TableCell>
-                  <TableCell>{userName(db, a.actorId)}</TableCell>
-                  <TableCell className="max-w-xl whitespace-normal">
-                    {a.action}
-                    {a.details && <div className="text-muted-foreground text-xs">{a.details}</div>}
-                  </TableCell>
-                  <TableCell>
-                    <EntityLink db={db} type={a.entityType} id={a.entityId} />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={a.severity === "blocked" ? "destructive" : a.severity === "warning" ? "warning" : "secondary"}>
-                      {a.severity ?? "info"}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {rows.length === 0 ? <Empty>No entries.</Empty> : <DataList rows={rows} columns={auditColumns(db)} rowKey={(a) => a.id} breakpoint="lg" />}
     </>
   );
 }

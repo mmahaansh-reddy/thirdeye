@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { LineItemsEditor } from "@/components/line-items-editor";
+import { DataList, type Column } from "@/components/data-list";
 import { NativeSelect } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -100,89 +101,93 @@ export default function ChangeRequestsPage() {
       </div>
 
       {rows.length === 0 ? (
-        <Empty>No change requests match. Start one from a booking&apos;s Change requests tab.</Empty>
+        <Empty>No change requests match. Start one from the Raise change request button.</Empty>
       ) : (
-        <Card className="py-2">
-          <CardContent className="px-2">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Change</TableHead>
-                  <TableHead>Booking</TableHead>
-                  <TableHead>Request</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Raised by</TableHead>
-                  <TableHead>Description</TableHead>
-                  <TableHead className="text-right">Value Δ</TableHead>
-                  <TableHead className="text-right">Margin Δ</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Raised</TableHead>
-                  <TableHead>Decided</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {rows.map((c) => {
-                  const b = db.bookings.find((x) => x.id === c.bookingId);
-                  const req = db.requests.find((r) => r.id === b?.requestId);
-                  const lead = db.leads.find((l) => l.id === b?.leadId);
-                  const href = `/bookings/${c.bookingId}#changes`;
-                  return (
-                    <TableRow
-                      key={c.id}
-                      className="cursor-pointer"
-                      tabIndex={0}
-                      onClick={() => router.push(href)}
-                      onKeyDown={(e) => e.key === "Enter" && router.push(href)}
-                    >
-                      <TableCell className="font-mono text-xs">{c.id}</TableCell>
-                      <TableCell>
-                        <Link href={href} onClick={(e) => e.stopPropagation()} className="font-mono text-xs underline-offset-2 hover:underline">
-                          {c.bookingId}
-                        </Link>
-                      </TableCell>
-                      <TableCell>
-                        {req ? (
-                          <Link href={`/leads?request=${req.id}`} onClick={(e) => e.stopPropagation()} className="font-mono text-xs underline-offset-2 hover:underline">
-                            {req.id}
-                          </Link>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                      <TableCell>{lead?.customerName ?? "—"}</TableCell>
-                      <TableCell className="capitalize">{c.raisedBy}</TableCell>
-                      <TableCell className="max-w-64 truncate" title={c.description}>
-                        {c.description}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{formatINR(c.valueDelta)}</TableCell>
-                      <TableCell className={cn("text-right tabular-nums", c.marginDelta < 0 && "text-destructive")}>{formatINR(c.marginDelta)}</TableCell>
-                      <TableCell>
-                        <Badge variant={TONE[c.status]}>{c.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        {formatDate(c.createdAt)}
-                        <div>{userName(db, c.createdBy)}</div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground text-xs">
-                        {c.decidedAt ? (
-                          <>
-                            {formatDate(c.decidedAt)}
-                            <div>{userName(db, c.decidedBy)}</div>
-                          </>
-                        ) : (
-                          "—"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+        <DataList rows={rows} columns={crColumns(db)} rowKey={(c) => c.id} onRowClick={(c) => router.push(`/bookings/${c.bookingId}#changes`)} breakpoint="xl" />
       )}
     </>
   );
+}
+
+function crColumns(db: DB): Column<ChangeRequest>[] {
+  return [
+    {
+      header: "Change",
+      card: "title",
+      cell: (c) => (
+        <span className="flex items-center gap-2">
+          <span className="font-mono text-xs">{c.id}</span>
+          <Badge variant={TONE[c.status]}>{c.status}</Badge>
+        </span>
+      ),
+    },
+    {
+      header: "Booking",
+      stop: true,
+      cell: (c) => {
+        const b = db.bookings.find((x) => x.id === c.bookingId);
+        const req = db.requests.find((r) => r.id === b?.requestId);
+        const lead = db.leads.find((l) => l.id === b?.leadId);
+        return (
+          <div className="text-xs">
+            <Link href={`/bookings/${c.bookingId}#changes`} className="font-mono underline-offset-2 hover:underline">
+              {c.bookingId}
+            </Link>
+            {req && (
+              <>
+                {" · "}
+                <Link href={`/leads?request=${req.id}`} className="font-mono underline-offset-2 hover:underline">
+                  {req.id}
+                </Link>
+              </>
+            )}
+            <div className="text-foreground text-sm">{lead?.customerName ?? "—"}</div>
+          </div>
+        );
+      },
+    },
+    {
+      header: "Raised by / what changed",
+      card: "full",
+      cell: (c) => (
+        <div>
+          <div className="text-xs capitalize text-muted-foreground">{c.raisedBy}</div>
+          <div>{c.description}</div>
+        </div>
+      ),
+    },
+    {
+      header: "Value Δ / margin Δ",
+      align: "right",
+      cell: (c) => (
+        <>
+          <div>{formatINR(c.valueDelta)}</div>
+          <div className={cn("text-xs", c.marginDelta < 0 ? "text-destructive" : "text-muted-foreground")}>margin {formatINR(c.marginDelta)}</div>
+        </>
+      ),
+    },
+    {
+      header: "Raised",
+      cell: (c) => (
+        <div className="text-muted-foreground text-xs">
+          {formatDate(c.createdAt)}
+          <div>{userName(db, c.createdBy)}</div>
+        </div>
+      ),
+    },
+    {
+      header: "Decided",
+      cell: (c) =>
+        c.decidedAt ? (
+          <div className="text-muted-foreground text-xs">
+            {formatDate(c.decidedAt)}
+            <div>{userName(db, c.decidedBy)}</div>
+          </div>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        ),
+    },
+  ];
 }
 
 const EDITABLE = (b: Booking) => !["cancelled", "closed", "vendor_settled"].includes(b.status);

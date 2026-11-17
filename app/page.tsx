@@ -7,6 +7,7 @@ import { dashboardMetrics } from "@/lib/metrics";
 import { formatDate, formatINR, formatPct } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataList, type Column } from "@/components/data-list";
 import { EntityLink, Loading, PageHeader, Stat, userName } from "@/components/common";
 
 export default function DashboardPage() {
@@ -143,34 +144,13 @@ export default function DashboardPage() {
         </Card>
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+      <div className="mt-4 grid gap-4">
         <Card>
           <CardHeader>
             <CardTitle>By source / CRM</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Source</TableHead>
-                  <TableHead className="text-right">Enquiries</TableHead>
-                  <TableHead className="text-right">Leads</TableHead>
-                  <TableHead className="text-right">Bookings</TableHead>
-                  <TableHead className="text-right">Value</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {m.bySource.map((s) => (
-                  <TableRow key={s.source}>
-                    <TableCell>{s.source}</TableCell>
-                    <TableCell className="text-right tabular-nums">{s.enquiries}</TableCell>
-                    <TableCell className="text-right tabular-nums">{s.leads}</TableCell>
-                    <TableCell className="text-right tabular-nums">{s.bookings}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatINR(s.value)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataList rows={m.bySource} rowKey={(x) => x.source} breakpoint="md" bare columns={sourceColumns} />
           </CardContent>
         </Card>
 
@@ -180,36 +160,33 @@ export default function DashboardPage() {
             <CardDescription>Leakage = booked margin lost to vendor invoices above their quotes</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Owner</TableHead>
-                  <TableHead className="text-right">Bookings</TableHead>
-                  <TableHead className="text-right">Margin</TableHead>
-                  <TableHead className="text-right">Flagged</TableHead>
-                  <TableHead className="text-right">Leakage</TableHead>
-                  <TableHead className="text-right">Overdue</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {m.byOwner.map((o) => (
-                  <TableRow key={o.user.id}>
-                    <TableCell>{o.user.name}</TableCell>
-                    <TableCell className="text-right tabular-nums">{o.bookings}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatINR(o.bookedMargin)}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${o.flaggedMargin ? "text-destructive" : ""}`}>{formatINR(o.flaggedMargin)}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${o.leakage > 0 ? "text-destructive" : ""}`}>{formatINR(o.leakage)}</TableCell>
-                    <TableCell className={`text-right tabular-nums ${o.overdue ? "text-destructive" : ""}`}>{o.overdue}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <DataList rows={m.byOwner} rowKey={(x) => x.user.id} breakpoint="md" bare columns={ownerColumns} />
           </CardContent>
         </Card>
       </div>
     </>
   );
 }
+
+type SourceRow = ReturnType<typeof dashboardMetrics>["bySource"][number];
+type OwnerRow = ReturnType<typeof dashboardMetrics>["byOwner"][number];
+
+const sourceColumns: Column<SourceRow>[] = [
+  { header: "Source", card: "title", cell: (x) => <span className="font-medium">{x.source}</span> },
+  { header: "Enquiries", align: "right", cell: (x) => x.enquiries },
+  { header: "Leads", align: "right", cell: (x) => x.leads },
+  { header: "Bookings", align: "right", cell: (x) => x.bookings },
+  { header: "Value", align: "right", cell: (x) => formatINR(x.value) },
+];
+
+const ownerColumns: Column<OwnerRow>[] = [
+  { header: "Owner", card: "title", cell: (x) => <span className="font-medium">{x.user.name}</span> },
+  { header: "Bookings", align: "right", cell: (x) => x.bookings },
+  { header: "Margin", align: "right", cell: (x) => formatINR(x.bookedMargin) },
+  { header: "Flagged", align: "right", cell: (x) => <span className={x.flaggedMargin ? "text-destructive" : ""}>{formatINR(x.flaggedMargin)}</span> },
+  { header: "Leakage", align: "right", cell: (x) => <span className={x.leakage > 0 ? "text-destructive" : ""}>{formatINR(x.leakage)}</span> },
+  { header: "Overdue", align: "right", cell: (x) => <span className={x.overdue ? "text-destructive" : ""}>{x.overdue}</span> },
+];
 
 function Row({ label, value, bad }: { label: string; value: string; bad?: boolean }) {
   return (

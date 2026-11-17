@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useDB } from "@/lib/store";
-import { bookingFinance } from "@/lib/finance";
+import { bookingFinance, type BookingFinance } from "@/lib/finance";
+import type { Booking } from "@/lib/types";
+import { DataList, type Column } from "@/components/data-list";
 import { cn, formatINR } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -10,6 +13,7 @@ import { BookingStatusBadge, Loading, PageHeader, Stat } from "@/components/comm
 
 export default function FinancePage() {
   const db = useDB();
+  const router = useRouter();
   if (!db) return <Loading />;
   const rows = db.bookings.filter((b) => b.status !== "cancelled").map((b) => ({ b, f: bookingFinance(db, b) }));
   const sum = (fn: (x: (typeof rows)[number]) => number) => rows.reduce((s, x) => s + fn(x), 0);
@@ -37,48 +41,7 @@ export default function FinancePage() {
           <CardDescription>Every margin rupee here traces to booking lines and vendor quote references. Click a booking to audit it.</CardDescription>
         </CardHeader>
         <CardContent className="px-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Booking</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Sell (pre-GST)</TableHead>
-                <TableHead className="text-right">GST</TableHead>
-                <TableHead className="text-right">Quoted margin</TableHead>
-                <TableHead className="text-right">Booked margin</TableHead>
-                <TableHead className="text-right">Realised</TableHead>
-                <TableHead className="text-right">Leakage</TableHead>
-                <TableHead className="text-right">Flagged</TableHead>
-                <TableHead className="text-right">Receivable</TableHead>
-                <TableHead className="text-right">Vendor payable</TableHead>
-                <TableHead className="text-right">TDS</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map(({ b, f }) => (
-                <TableRow key={b.id}>
-                  <TableCell>
-                    <Link className="font-mono text-xs underline-offset-2 hover:underline" href={`/bookings/${b.id}`}>
-                      {b.id}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <BookingStatusBadge status={b.status} />
-                  </TableCell>
-                  <Num v={f.booked.sell} />
-                  <Num v={f.booked.gst} />
-                  <Num v={f.quoted.margin} />
-                  <Num v={f.booked.margin} />
-                  <TableCell className="text-right tabular-nums">{f.realisedMargin === null ? "—" : formatINR(f.realisedMargin)}</TableCell>
-                  <Num v={f.leakage} bad={f.leakage > 0} />
-                  <Num v={f.flaggedMargin} bad={f.flaggedMargin !== 0} />
-                  <Num v={f.receivable} />
-                  <Num v={f.vendorPayable} />
-                  <Num v={f.tdsDeducted} />
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataList rows={rows} columns={ledgerColumns} rowKey={(x) => x.b.id} onRowClick={(x) => router.push(`/bookings/${x.b.id}`)} breakpoint="xl" bare />
         </CardContent>
       </Card>
       <p className="text-muted-foreground mt-3 text-xs">
@@ -88,6 +51,80 @@ export default function FinancePage() {
     </>
   );
 }
+
+type LedgerRow = { b: Booking; f: BookingFinance };
+
+const ledgerColumns: Column<LedgerRow>[] = [
+  {
+    header: "Booking",
+    card: "title",
+    cell: ({ b }) => (
+      <span className="flex flex-wrap items-center gap-2">
+        <Link className="font-mono text-xs underline-offset-2 hover:underline" href={`/bookings/${b.id}`} onClick={(e) => e.stopPropagation()}>
+          {b.id}
+        </Link>
+        <BookingStatusBadge status={b.status} />
+      </span>
+    ),
+  },
+  {
+    header: "Sell (pre-GST) / GST",
+    align: "right",
+    cell: ({ f }) => (
+      <>
+        <div>{formatINR(f.booked.sell)}</div>
+        <div className="text-muted-foreground text-xs">GST {formatINR(f.booked.gst)}</div>
+      </>
+    ),
+  },
+  {
+    header: "Margin: quoted · booked · realised",
+    align: "right",
+    cell: ({ f }) => (
+      <div className="space-y-0.5 text-xs">
+        <div>
+          <span className="text-muted-foreground">Quoted </span>
+          {formatINR(f.quoted.margin)}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Booked </span>
+          {formatINR(f.booked.margin)}
+        </div>
+        <div>
+          <span className="text-muted-foreground">Realised </span>
+          {f.realisedMargin === null ? "—" : formatINR(f.realisedMargin)}
+        </div>
+      </div>
+    ),
+  },
+  {
+    header: "Leakage / flagged",
+    align: "right",
+    cell: ({ f }) => (
+      <div className="space-y-0.5 text-xs">
+        <div className={cn(f.leakage > 0 && "text-destructive font-semibold")}>
+          <span className="text-muted-foreground">Leakage </span>
+          {formatINR(f.leakage)}
+        </div>
+        <div className={cn(f.flaggedMargin !== 0 && "text-destructive font-semibold")}>
+          <span className="text-muted-foreground">Flagged </span>
+          {formatINR(f.flaggedMargin)}
+        </div>
+      </div>
+    ),
+  },
+  { header: "Receivable", align: "right", cell: ({ f }) => formatINR(f.receivable) },
+  {
+    header: "Vendor payable / TDS",
+    align: "right",
+    cell: ({ f }) => (
+      <>
+        <div>{formatINR(f.vendorPayable)}</div>
+        <div className="text-muted-foreground text-xs">TDS {formatINR(f.tdsDeducted)}</div>
+      </>
+    ),
+  },
+];
 
 function Num({ v, bad }: { v: number; bad?: boolean }) {
   return <TableCell className={cn("text-right tabular-nums", bad && "text-destructive font-semibold")}>{formatINR(v)}</TableCell>;

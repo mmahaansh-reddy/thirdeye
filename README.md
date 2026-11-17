@@ -36,6 +36,7 @@ A web app that is the **single source of truth** for leads, quotes, bookings, ch
 | Follow-ups are generated from data | `syncTasks()` runs after every change and reconciles tasks with current data | No one has to remember to create follow-ups. Completed steps close their tasks automatically. |
 | Leads and Enquiries page | One page, one row per customer (unique lead/enquiry), tagged with the furthest stage reached (Enquiry, Lead, Request raised, Quoted, Booked, Fully paid, Lost, Duplicate). Funnel steps are cumulative. | The **dashboard funnel graph reads the same rows** (`lib/funnel.ts`), so the page chips and the dashboard bars always match. Clicking a dashboard bar opens the page filtered to that step. |
 | No separate Requests page | Requests, quotes and pre-sales routing live in a panel opened from a customer on Leads and Enquiries. Old `/requests` links redirect there. | One place for the customer journey. Accepting a quote still creates the booking. |
+| Responsive lists | List pages use `components/data-list.tsx`: a wrapping table on wide screens and one card per row on smaller ones, so nothing scrolls sideways. | Works on laptops, tablets and phones. Pages with many numbers group related figures into one cell (e.g. value / received). |
 | Lead definition | OTP-verified **and** not a duplicate | Matches the business definition. Enquiries keep their own conversion figures. |
 | Duplicate detection | Same 10-digit phone number = duplicate of the first record | Simple and predictable. Can be extended with email or fuzzy name matching. |
 | Three margins per booking | **Quoted** (accepted quote) → **Booked** (after approved changes) → **Realised** (booked sell − actual vendor invoices) | Splits "margin promised" from "margin earned". The gap shows where inflated numbers are. |
@@ -114,6 +115,7 @@ app/
   settings/                Routing role, deadlines, advance %, JSON export
 components/
   ui/                      shadcn/ui components
+  data-list.tsx            Responsive list (table on wide screens, cards on narrow)
   app-shell.tsx            Sidebar, user switcher, demo reset
   common.tsx               Shared page building blocks
   line-items-editor.tsx    Line item editor + read-only table

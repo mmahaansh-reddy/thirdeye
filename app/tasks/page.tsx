@@ -9,7 +9,42 @@ import { Badge } from "@/components/ui/badge";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { EntityLink, ErrorText, Field, Loading, PageHeader, useAction, userName } from "@/components/common";
+import type { DB, Task } from "@/lib/types";
+import { DataList, type Column } from "@/components/data-list";
+import { Empty, EntityLink, ErrorText, Field, Loading, PageHeader, useAction, userName } from "@/components/common";
+
+function taskColumns(db: DB, label: (ruleId: string) => string, run: ReturnType<typeof useAction>["run"]): Column<Task>[] {
+  return [
+    {
+      header: "Task",
+      card: "title",
+      cell: (t) => (
+        <div>
+          <div className="font-medium">{t.title}</div>
+          <div className="text-muted-foreground text-xs">{label(t.ruleId)}</div>
+        </div>
+      ),
+    },
+    { header: "Record", stop: true, cell: (t) => (t.ruleId === "manual" ? "—" : <EntityLink db={db} type={t.entityType} id={t.entityId} />) },
+    { header: "Assignee", cell: (t) => userName(db, t.assigneeId) },
+    { header: "Due", cell: (t) => <span className={isOverdue(t) ? "text-destructive font-medium" : ""}>{formatDate(t.dueAt)}</span> },
+    {
+      header: "Status",
+      cell: (t) =>
+        isOverdue(t) ? <Badge variant="destructive">overdue</Badge> : <Badge variant={t.status === "open" ? "warning" : "secondary"}>{t.status.replace("_", " ")}</Badge>,
+    },
+    {
+      header: "Action",
+      stop: true,
+      cell: (t) =>
+        t.status === "open" ? (
+          <Button size="sm" variant="outline" onClick={() => run(actions.completeTask(t.id))}>
+            Done
+          </Button>
+        ) : null,
+    },
+  ];
+}
 
 export default function TasksPage() {
   const db = useDB();
@@ -49,55 +84,11 @@ export default function TasksPage() {
         </NativeSelect>
       </div>
       <ErrorText error={error} />
-      <Card className="py-2">
-        <CardContent className="px-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Task</TableHead>
-                <TableHead>Rule</TableHead>
-                <TableHead>Record</TableHead>
-                <TableHead>Assignee</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell className="font-medium">{t.title}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs">{label(t.ruleId)}</TableCell>
-                  <TableCell>{t.ruleId === "manual" ? "—" : <EntityLink db={db} type={t.entityType} id={t.entityId} />}</TableCell>
-                  <TableCell>{userName(db, t.assigneeId)}</TableCell>
-                  <TableCell className={isOverdue(t) ? "text-destructive font-medium" : ""}>{formatDate(t.dueAt)}</TableCell>
-                  <TableCell>
-                    {isOverdue(t) ? (
-                      <Badge variant="destructive">overdue</Badge>
-                    ) : (
-                      <Badge variant={t.status === "open" ? "warning" : "secondary"}>{t.status.replace("_", " ")}</Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {t.status === "open" && (
-                      <Button size="sm" variant="outline" onClick={() => run(actions.completeTask(t.id))}>
-                        Done
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {rows.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-muted-foreground py-6 text-center">
-                    Nothing here.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      {rows.length === 0 ? (
+        <Empty>Nothing here.</Empty>
+      ) : (
+        <DataList rows={rows} columns={taskColumns(db, label, run)} rowKey={(t) => t.id} breakpoint="lg" />
+      )}
 
       <Card className="mt-4">
         <CardHeader>

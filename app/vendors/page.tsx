@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Plus } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
-import type { VendorStatus } from "@/lib/types";
+import type { DB, Vendor, VendorStatus } from "@/lib/types";
 import { formatINR } from "@/lib/utils";
 import { bookingFinance } from "@/lib/finance";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DataList, type Column } from "@/components/data-list";
 import { ErrorText, Field, Loading, PageHeader, useAction } from "@/components/common";
 
 const TONE: Record<VendorStatus, "success" | "warning" | "destructive"> = { approved: "success", pending: "warning", rejected: "destructive" };
@@ -30,64 +31,9 @@ export default function VendorsPage() {
         </Button>
       </PageHeader>
       <ErrorText error={error} />
-      <Card className="mt-2 py-2">
-        <CardContent className="px-2">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>GSTIN / PAN</TableHead>
-                <TableHead className="text-right">TDS</TableHead>
-                <TableHead className="text-right">Booked cost</TableHead>
-                <TableHead className="text-right">Invoiced</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {db.vendors.map((v) => {
-                const bookedCost = db.bookings
-                  .filter((b) => b.status !== "cancelled")
-                  .flatMap((b) => b.items)
-                  .filter((i) => i.vendorId === v.id)
-                  .reduce((s, i) => s + i.cost, 0);
-                const invoiced = db.bookings.flatMap((b) => b.vendorInvoices).filter((i) => i.vendorId === v.id).reduce((s, i) => s + i.amount, 0);
-                return (
-                  <TableRow key={v.id}>
-                    <TableCell>
-                      <div className="font-medium">{v.name}</div>
-                      <div className="text-muted-foreground font-mono text-xs">{v.id}</div>
-                    </TableCell>
-                    <TableCell>{v.category}</TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {v.gstin || <span className="text-destructive">missing</span>} / {v.pan || <span className="text-destructive">missing</span>}
-                    </TableCell>
-                    <TableCell className="text-right">{v.tdsRate}%</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatINR(bookedCost)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{formatINR(invoiced)}</TableCell>
-                    <TableCell>
-                      <Badge variant={TONE[v.status]}>{v.status}</Badge>
-                    </TableCell>
-                    <TableCell className="space-x-1 text-right">
-                      {v.status !== "approved" && (
-                        <Button size="sm" variant="outline" onClick={() => run(actions.setVendorStatus(v.id, "approved"))}>
-                          Approve
-                        </Button>
-                      )}
-                      {v.status !== "rejected" && (
-                        <Button size="sm" variant="ghost" onClick={() => run(actions.setVendorStatus(v.id, "rejected"))}>
-                          Reject
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+      <div className="mt-2">
+        <DataList rows={db.vendors} columns={vendorColumns(db, run)} rowKey={(v) => v.id} breakpoint="xl" />
+      </div>
       <p className="text-muted-foreground mt-3 text-xs">
         Margin currently booked through non-approved vendors:{" "}
         <b className="text-destructive">
@@ -97,6 +43,70 @@ export default function VendorsPage() {
       <AddVendorDialog open={adding} onOpenChange={setAdding} />
     </>
   );
+}
+
+function vendorColumns(db: DB, run: ReturnType<typeof useAction>["run"]): Column<Vendor>[] {
+  return [
+    {
+      header: "Vendor",
+      card: "title",
+      cell: (v) => (
+        <div>
+          <div className="font-medium">{v.name}</div>
+          <div className="text-muted-foreground text-xs">
+            <span className="font-mono">{v.id}</span> · {v.category}
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: "GSTIN / PAN",
+      cell: (v) => (
+        <div className="font-mono text-xs">
+          <div>{v.gstin || <span className="text-destructive">GSTIN missing</span>}</div>
+          <div>{v.pan || <span className="text-destructive">PAN missing</span>}</div>
+        </div>
+      ),
+    },
+    { header: "TDS", align: "right", cell: (v) => `${v.tdsRate}%` },
+    {
+      header: "Booked cost / invoiced",
+      align: "right",
+      cell: (v) => {
+        const bookedCost = db.bookings
+          .filter((b) => b.status !== "cancelled")
+          .flatMap((b) => b.items)
+          .filter((i) => i.vendorId === v.id)
+          .reduce((s, i) => s + i.cost, 0);
+        const invoiced = db.bookings.flatMap((b) => b.vendorInvoices).filter((i) => i.vendorId === v.id).reduce((s, i) => s + i.amount, 0);
+        return (
+          <>
+            <div>{formatINR(bookedCost)}</div>
+            <div className="text-muted-foreground text-xs">{formatINR(invoiced)} invoiced</div>
+          </>
+        );
+      },
+    },
+    { header: "Status", cell: (v) => <Badge variant={TONE[v.status]}>{v.status}</Badge> },
+    {
+      header: "Action",
+      stop: true,
+      cell: (v) => (
+        <div className="flex flex-wrap gap-1">
+          {v.status !== "approved" && (
+            <Button size="sm" variant="outline" onClick={() => run(actions.setVendorStatus(v.id, "approved"))}>
+              Approve
+            </Button>
+          )}
+          {v.status !== "rejected" && (
+            <Button size="sm" variant="ghost" onClick={() => run(actions.setVendorStatus(v.id, "rejected"))}>
+              Reject
+            </Button>
+          )}
+        </div>
+      ),
+    },
+  ];
 }
 
 function AddVendorDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
