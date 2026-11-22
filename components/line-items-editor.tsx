@@ -78,7 +78,38 @@ export function LineItemsEditor({ db, items, onChange }: { db: DB; items: LineIt
 export function LineItemsTable({ db, items }: { db: DB; items: LineItem[] }) {
   const t = totals(items);
   return (
-    <div className="overflow-x-auto">
+    <>
+      {/* Phones: one card per line, no sideways scrolling */}
+      <div className="space-y-2 md:hidden">
+        {items.map((i) => {
+          const v = vendorById(db, i.vendorId);
+          return (
+            <div key={i.id} className="rounded-lg border p-3 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="font-medium">{i.description}</div>
+                <div className="font-semibold tabular-nums">{formatINR(i.price)}</div>
+              </div>
+              <div className="text-muted-foreground mt-1 text-xs">
+                {v?.name ?? "—"} {v && v.status !== "approved" && <Badge variant="destructive">{v.status}</Badge>} · ref {i.vendorQuoteRef}
+              </div>
+              <div className="text-muted-foreground mt-2 grid grid-cols-3 gap-2 text-xs">
+                <span>Cost <b className="text-foreground tabular-nums">{formatINR(i.cost)}</b></span>
+                <span>GST <b className="text-foreground tabular-nums">{i.gstRate}%</b></span>
+                <span>Margin <b className="text-foreground tabular-nums">{formatINR(i.price - i.cost)}</b></span>
+              </div>
+            </div>
+          );
+        })}
+        <div className="bg-muted/60 rounded-lg p-3 text-sm font-semibold">
+          <div className="flex justify-between"><span>Customer pays</span><span className="tabular-nums">{formatINR(t.gross)}</span></div>
+          <div className="text-muted-foreground mt-1 flex justify-between text-xs font-normal">
+            <span>Cost {formatINR(t.cost)}</span>
+            <span>Margin {formatINR(t.margin)} ({formatPct(t.marginPct)})</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="hidden overflow-x-auto md:block">
       <table className="w-full text-sm">
         <thead className="text-muted-foreground text-xs">
           <tr className="border-b">
@@ -124,5 +155,6 @@ export function LineItemsTable({ db, items }: { db: DB; items: LineItem[] }) {
         </tfoot>
       </table>
     </div>
+    </>
   );
 }

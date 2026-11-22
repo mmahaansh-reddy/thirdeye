@@ -330,6 +330,13 @@ export const actions = {
       if (["cancelled", "closed", "vendor_settled"].includes(b.status)) throw new Error("Booking can no longer be changed");
       if (!description.trim()) throw new Error("Describe the change");
       checkVendorsSoft(db, proposedItems);
+      // A change cannot bring in a vendor that is not approved (unless that vendor is already on the booking).
+      for (const i of proposedItems) {
+        const v = vendorById(db, i.vendorId);
+        if (v && v.status !== "approved" && !b.items.some((x) => x.vendorId === i.vendorId)) {
+          throw new Error(`${v.name} is not an approved vendor. Ask Finance to approve them before adding them to a booking`);
+        }
+      }
       const strip = (items: LineItem[]) => JSON.stringify(items.map(({ id: _id, ...rest }) => rest));
       if (strip(proposedItems) === strip(b.items)) throw new Error("No changes made: edit at least one line before submitting");
       const before = totals(b.items);
@@ -348,6 +355,12 @@ export const actions = {
       const c = find(db.changeRequests, crId, "Change request");
       requireRole(db, ["admin"], "decide a change request", "change_request", c.id);
       if (c.status !== "pending") throw new Error("Already decided");
+      if (approve) {
+        const cur = find(db.bookings, c.bookingId, "Booking");
+        if (c.baseGross !== undefined && Math.round(totals(cur.items).gross) !== Math.round(c.baseGross)) {
+          throw new Error("The booking changed after this request was raised. Reject it and raise a fresh one");
+        }
+      }
       c.status = approve ? "approved" : "rejected";
       c.decidedBy = db.settings.currentUserId;
       c.decidedAt = now();
