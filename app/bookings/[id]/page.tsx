@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { Check, ChevronLeft } from "lucide-react";
 import { actions, useDB } from "@/lib/store";
 import type { Booking, ChangeRequest, DB } from "@/lib/types";
 import { bookingFinance, changeRequestValues, originalValue, tdsFor, vendorById } from "@/lib/finance";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, NativeSelect } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Meter } from "@/components/charts";
 import { BookingStatusBadge, Empty, ErrorText, Field, Loading, PageHeader, useAction, userName } from "@/components/common";
 import { LineItemsTable } from "@/components/line-items-editor";
 import { useNow } from "@/lib/use-now";
@@ -38,31 +39,40 @@ export default function BookingDetailPage() {
 
   return (
     <>
-      <PageHeader
-        title={`Booking ${b.id}`}
-        description={`${lead?.customerName ?? ""} · ${req?.title ?? ""} · owner ${userName(db, b.ownerId)} · version v${b.version}`}
-      >
-        <Button asChild variant="outline">
-          <Link href={`/leads?request=${b.requestId}`}>Request {b.requestId}</Link>
-        </Button>
-      </PageHeader>
+      <Link href="/bookings" className="text-muted-foreground hover:text-foreground mb-3 inline-flex items-center gap-1 text-sm">
+        <ChevronLeft className="size-4" /> Ongoing Bookings
+      </Link>
 
-      <Lifecycle db={db} b={b} />
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <BookingStatusBadge status={b.status} />
-        {nextManual.map((s) => (
-          <Button key={s} size="sm" variant={s === "cancelled" ? "ghost" : "default"} onClick={() => run(actions.setBookingStatus(b.id, s))}>
-            {s === "cancelled" ? "Cancel booking" : `Mark: ${BOOKING_STATUS_LABEL[s]}`}
-          </Button>
-        ))}
-        {["confirmed", "advance_paid"].includes(b.status) && (
-          <span className="text-muted-foreground text-xs">Payment statuses update automatically when payments are recorded.</span>
-        )}
-      </div>
-      <div className="mt-2">
-        <ErrorText error={error} />
-      </div>
+      <Card className="from-brand-soft to-card bg-gradient-to-br py-5">
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold tracking-tight">{lead?.customerName ?? b.id}</h1>
+                <BookingStatusBadge status={b.status} />
+              </div>
+              <p className="text-muted-foreground mt-1 text-sm">
+                <span className="font-mono">{b.id}</span> · {req?.title ?? ""} · owner {userName(db, b.ownerId)} · version v{b.version}
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {nextManual.map((s) => (
+                <Button key={s} size="sm" variant={s === "cancelled" ? "ghost" : "default"} onClick={() => run(actions.setBookingStatus(b.id, s))}>
+                  {s === "cancelled" ? "Cancel booking" : `Mark: ${BOOKING_STATUS_LABEL[s]}`}
+                </Button>
+              ))}
+              <Button asChild size="sm" variant="outline">
+                <Link href={`/leads?request=${b.requestId}`}>Request {b.requestId}</Link>
+              </Button>
+            </div>
+          </div>
+          {["confirmed", "advance_paid"].includes(b.status) && (
+            <p className="text-muted-foreground text-xs">Payment statuses update automatically when payments are recorded.</p>
+          )}
+          <ErrorText error={error} />
+          <Lifecycle db={db} b={b} />
+        </CardContent>
+      </Card>
 
       <Card className="mt-4 py-4">
         <CardContent>
@@ -95,14 +105,25 @@ export default function BookingDetailPage() {
               </div>
             </div>
           </div>
+          <div className="mt-4 border-t pt-3">
+            <div className="text-muted-foreground mb-1.5 flex justify-between text-xs">
+              <span>Collected {formatINR(f.received)}</span>
+              <span>{f.booked.gross ? Math.round((f.received / f.booked.gross) * 100) : 0}% of current value</span>
+            </div>
+            <Meter value={f.booked.gross ? (f.received / f.booked.gross) * 100 : 0} />
+          </div>
         </CardContent>
       </Card>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="text-muted-foreground mt-6 mb-2 text-xs font-medium tracking-wide uppercase">Margin</div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Money label="Quoted margin" value={f.quoted.margin} hint="at quote acceptance" />
         <Money label="Booked margin" value={f.booked.margin} hint={`after ${b.version - 1} approved change(s)`} />
         <Money label="Realised margin" value={f.realisedMargin} hint={f.realisedMargin === null ? "awaiting vendor invoices" : `leakage ${formatINR(f.leakage)}`} bad={f.leakage > 0} />
         <Money label="Flagged-vendor margin" value={f.flaggedMargin} bad={f.flaggedMargin !== 0} />
+      </div>
+      <div className="text-muted-foreground mt-5 mb-2 text-xs font-medium tracking-wide uppercase">Cash and compliance</div>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Money label="Customer pays" value={f.booked.gross} hint={`incl. GST ${formatINR(f.booked.gst)}`} />
         <Money label="Received / receivable" value={f.received} hint={`${formatINR(f.receivable)} outstanding`} />
         <Money label="Vendor payable" value={f.vendorPayable} hint={`invoiced ${formatINR(f.invoicedCost)}`} />

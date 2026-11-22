@@ -2,24 +2,28 @@
 
 import Link from "next/link";
 import { AlertTriangle, ShieldAlert } from "lucide-react";
+import { currentUser } from "@/lib/store";
 import { useDB } from "@/lib/store";
 import { dashboardMetrics } from "@/lib/metrics";
 import { formatDate, formatINR, formatPct } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DataList, type Column } from "@/components/data-list";
+import { BarChart, Donut, FunnelChart, Meter } from "@/components/charts";
 import { EntityLink, Loading, PageHeader, Stat, userName } from "@/components/common";
 
 export default function DashboardPage() {
   const db = useDB();
   if (!db) return <Loading />;
   const m = dashboardMetrics(db);
-  const maxFunnel = Math.max(1, ...m.funnel.map((f) => f.value));
+  const me = currentUser(db);
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const realisedPct = m.margin.bookedSell ? (m.margin.booked / m.margin.bookedSell) * 100 : 0;
 
   return (
     <>
-      <PageHeader title="Founder dashboard" description="Every figure is computed from records. Click through to see the bookings behind it." />
+      <PageHeader title={`${greeting}, ${me.name.split(" ")[0]}`} description="Every figure is computed from records. Click a card, bar or row to see the records behind it." />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         <Stat label="Booking value" value={formatINR(m.money.bookingValue)} hint="incl. GST, live bookings" href="/bookings" />
@@ -30,7 +34,44 @@ export default function DashboardPage() {
         <Stat label="TDS deducted" value={formatINR(m.money.tds)} href="/finance" />
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Cash position</CardTitle>
+            <CardDescription>Of everything booked, what has come in and what is still to collect</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Donut
+              centerLabel="of booking value"
+              centerValue={m.money.bookingValue ? `${Math.round((m.money.received / m.money.bookingValue) * 100)}%` : "–"}
+              parts={[
+                { label: "Received", value: m.money.received, color: "var(--chart-3)" },
+                { label: "Receivable", value: m.money.receivable, color: "var(--chart-4)" },
+              ]}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Obligations</CardTitle>
+            <CardDescription>Vendor payable, GST output and TDS deducted, side by side</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Donut
+              centerLabel="total"
+              centerValue={formatINR(m.money.vendorPayable + m.money.gst + m.money.tds)}
+              size={148}
+              parts={[
+                { label: "Vendor payable", value: m.money.vendorPayable, color: "var(--chart-1)" },
+                { label: "GST output", value: m.money.gst, color: "var(--chart-2)" },
+                { label: "TDS deducted", value: m.money.tds, color: "var(--chart-5)" },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle>Leads and Bookings</CardTitle>
@@ -39,20 +80,9 @@ export default function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            {m.funnel.map((f, i) => (
-              <Link key={f.key} href={`/leads?step=${f.key}`} className="hover:bg-muted/50 -mx-1 flex items-center gap-3 rounded px-1">
-                <div className="text-muted-foreground w-40 shrink-0 text-sm">{f.label}</div>
-                <div className="bg-muted h-7 flex-1 overflow-hidden rounded">
-                  <div
-                    className={i === 0 ? "bg-muted-foreground/40 h-full" : "bg-primary h-full"}
-                    style={{ width: `${(f.value / maxFunnel) * 100}%` }}
-                  />
-                </div>
-                <div className="w-10 text-right text-sm font-semibold tabular-nums">{f.value}</div>
-              </Link>
-            ))}
-            <div className="text-muted-foreground grid grid-cols-2 gap-2 pt-3 text-xs sm:grid-cols-4">
-              <div>Lead → booking: <b className="text-foreground">{formatPct(m.leadToBooking)}</b></div>
+            <FunnelChart steps={m.funnel} />
+            <div className="text-muted-foreground grid grid-cols-2 gap-2 border-t pt-3 text-xs sm:grid-cols-4">
+              <div>Lead → booking: <b className="text-foreground">{formatPct(m.leadToBooking)}</b><Meter value={m.leadToBooking} className="mt-1.5" /></div>
               <div>Enquiry share: <b className="text-foreground">{formatPct(m.enquiryShare)}</b></div>
               <div>Quotes / request: <b className="text-foreground">{m.quotesPerRequest.toFixed(1)}</b></div>
               <div>Avg first quote: <b className="text-foreground">{m.avgFirstQuoteHours.toFixed(1)}h</b></div>
@@ -69,6 +99,15 @@ export default function DashboardPage() {
             <CardDescription>Quoted → booked → realised, all tied to booking lines</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <BarChart
+              height={110}
+              data={[
+                { label: "Quoted", value: m.margin.quoted, color: "var(--chart-2)" },
+                { label: "Booked", value: m.margin.booked, color: "var(--chart-1)" },
+                { label: "Realised", value: m.margin.realised, color: "var(--chart-3)" },
+              ]}
+            />
+            <div className="border-t pt-3" />
             <Row label="Quoted margin" value={formatINR(m.margin.quoted)} />
             <Row label="Booked margin" value={`${formatINR(m.margin.booked)} (${formatPct(realisedPct)})`} />
             <Row label={`Realised (${m.margin.realisedBookings} invoiced)`} value={formatINR(m.margin.realised)} />

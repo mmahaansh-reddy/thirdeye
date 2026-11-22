@@ -1,11 +1,15 @@
 "use client";
 
+import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  LayoutDashboard, Users, CalendarCheck, GitPullRequestArrow, Building2, IndianRupee, ListTodo, ScrollText, Settings, RotateCcw, Eye, Wallet, ShieldAlert,
+  LayoutDashboard, Users, CalendarCheck, GitPullRequestArrow, Building2, IndianRupee, ListTodo, ScrollText, Settings, RotateCcw, Eye, Wallet, ShieldAlert, Search,
 } from "lucide-react";
 import { actions, currentUser, useDB } from "@/lib/store";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { Toaster } from "@/components/toast";
+import { CommandPalette } from "@/components/command-palette";
 import { HOME, ROLE_LABEL, canAccess } from "@/lib/access";
 import type { DB } from "@/lib/types";
 import { isOverdue } from "@/lib/workflow";
@@ -33,6 +37,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const me = db ? currentUser(db) : null;
   // Only show pages the current role may open. The founder (admin) sees everything.
   const nav = me ? NAV.filter((n) => canAccess(me.role, n.href)) : [];
+  const pages = useMemo(() => nav.map((n) => ({ href: n.href, label: n.label })), [me?.role]); // eslint-disable-line react-hooks/exhaustive-deps
   const overdue = db && me ? db.tasks.filter((t) => isOverdue(t) && (me.role === "admin" || t.assigneeId === me.id)).length : 0;
   const switchUser = (id: string) => {
     if (!db) return;
@@ -54,8 +59,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent",
-                isActive(pathname, href) && "bg-sidebar-accent text-white"
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors hover:bg-sidebar-accent",
+                isActive(pathname, href) && "bg-sidebar-accent text-white shadow-[inset_2px_0_0_var(--brand)]"
               )}
             >
               <Icon className="size-4" />
@@ -66,12 +71,23 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        <div className="px-3 pb-2">
+          <button
+            onClick={() => window.dispatchEvent(new Event("thirdeye:search"))}
+            className="flex w-full items-center gap-2 rounded-lg border border-sidebar-border px-3 py-2 text-sm opacity-70 transition hover:opacity-100"
+          >
+            <Search className="size-4" />
+            <span className="flex-1 text-left">Search…</span>
+            <kbd className="rounded border border-sidebar-border px-1.5 text-[10px]">Ctrl K</kbd>
+          </button>
+        </div>
         <div className="space-y-2 border-t border-sidebar-border p-4">
           <label className="block text-xs opacity-60" htmlFor="acting-as">
             Acting as (demo login)
           </label>
           <UserSwitcher db={db} onChange={switchUser} id="acting-as" />
           {me && <div className="text-xs opacity-60">{me.role === "admin" ? "Founder view: all pages" : `${ROLE_LABEL[me.role]} view: ${nav.length} pages`}</div>}
+          <ThemeToggle />
           <button
             className="flex items-center gap-1.5 text-xs opacity-60 hover:opacity-100"
             onClick={() => {
@@ -97,9 +113,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
             </div>
           ) : (
-            children
+            <div key={pathname} className="page-in">
+              {children}
+            </div>
           )}
         </main>
+        <Toaster />
+        <CommandPalette db={db} role={me?.role} pages={pages} />
       </div>
     </div>
   );
@@ -125,7 +145,16 @@ function UserSwitcher({ db, onChange, id, className }: { db: DB | null; onChange
 function MobileNav({ pathname, nav, db, onSwitch }: { pathname: string; nav: typeof NAV; db: DB | null; onSwitch: (id: string) => void }) {
   return (
     <div className="bg-sidebar space-y-2 px-2 py-2 md:hidden">
-      <UserSwitcher db={db} onChange={onSwitch} className="text-xs" />
+      <div className="flex gap-2">
+        <UserSwitcher db={db} onChange={onSwitch} className="text-xs" />
+        <button
+          aria-label="Search"
+          onClick={() => window.dispatchEvent(new Event("thirdeye:search"))}
+          className="border-sidebar-border text-sidebar-foreground rounded-md border px-2.5"
+        >
+          <Search className="size-4" />
+        </button>
+      </div>
       <div className="flex gap-1 overflow-x-auto">
         {nav.map(({ href, label }) => (
           <Link

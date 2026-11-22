@@ -7,7 +7,10 @@ import type { Result } from "@/lib/store";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { BOOKING_STATUS_LABEL } from "@/lib/workflow";
+import { Inbox } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/components/toast";
 
 export function PageHeader({ title, description, children }: { title: string; description?: string; children?: React.ReactNode }) {
   return (
@@ -25,7 +28,7 @@ export function Stat({
   label, value, hint, tone = "default", href,
 }: { label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: "default" | "good" | "bad" | "warn"; href?: string }) {
   const body = (
-    <Card className={cn("gap-1 py-4", href && "hover:border-ring transition-colors")}>
+    <Card className={cn("gap-1 py-4 transition-all", href && "hover:border-ring hover:-translate-y-0.5 hover:shadow-md")}>
       <CardContent>
         <div className="text-muted-foreground text-xs font-medium tracking-wide uppercase">{label}</div>
         <div
@@ -33,7 +36,7 @@ export function Stat({
             "mt-1 text-2xl font-semibold tabular-nums",
             tone === "good" && "text-success",
             tone === "bad" && "text-destructive",
-            tone === "warn" && "text-[oklch(0.55_0.14_60)]"
+            tone === "warn" && "text-warning-foreground"
           )}
         >
           {value}
@@ -62,19 +65,35 @@ export function BookingStatusBadge({ status }: { status: BookingStatus }) {
 }
 
 export function Loading() {
-  return <div className="text-muted-foreground p-8 text-sm">Loading data…</div>;
+  return (
+    <div className="space-y-4" aria-busy="true" aria-label="Loading">
+      <Skeleton className="h-8 w-56" />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[0, 1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-24" />
+        ))}
+      </div>
+      <Skeleton className="h-64" />
+    </div>
+  );
 }
 
 export function Empty({ children }: { children: React.ReactNode }) {
-  return <div className="text-muted-foreground rounded-lg border border-dashed p-8 text-center text-sm">{children}</div>;
+  return (
+    <div className="text-muted-foreground bg-card/50 flex flex-col items-center gap-2 rounded-xl border border-dashed p-10 text-center text-sm">
+      <Inbox className="size-6 opacity-50" />
+      <div>{children}</div>
+    </div>
+  );
 }
 
 /** Wraps an action call and shows its error (including rule violations) inline. */
 export function useAction() {
   const [error, setError] = useState<string | null>(null);
-  const run = (r: Result, onOk?: (id?: string) => void) => {
+  const run = (r: Result, onOk?: (id?: string) => void, message = "Saved") => {
     if (r.ok) {
       setError(null);
+      if (message) toast(message);
       onOk?.(r.id);
     } else setError(r.error);
     return r.ok;
@@ -137,7 +156,7 @@ export function Chip({ label, n, active, onClick }: { label: string; n: number; 
   return (
     <button
       onClick={onClick}
-      className={cn("rounded-full border px-3 py-1 text-sm transition-colors", active ? "bg-primary text-primary-foreground border-primary" : "bg-card hover:bg-accent")}
+      className={cn("rounded-full border px-3 py-1 text-sm whitespace-nowrap transition-all active:scale-95", active ? "bg-primary text-primary-foreground border-primary shadow-sm" : "bg-card hover:bg-accent hover:border-ring/50")}
     >
       {label} <span className={cn("ml-1 tabular-nums", active ? "opacity-80" : "text-muted-foreground")}>{n}</span>
     </button>
