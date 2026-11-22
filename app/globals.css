@@ -141,7 +141,20 @@
 @keyframes shimmer {
   to { background-position: -200% 0; }
 }
-.page-in { animation: page-in 0.25s ease-out both; }
+.page-in { animation: page-in 0.3s ease-out both; }
+/* Top-level blocks of a page rise in one after another */
+.page-in > * { animation: rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.page-in > *:nth-child(2) { animation-delay: 60ms; }
+.page-in > *:nth-child(3) { animation-delay: 110ms; }
+.page-in > *:nth-child(4) { animation-delay: 160ms; }
+.page-in > *:nth-child(5) { animation-delay: 210ms; }
+.page-in > *:nth-child(n + 6) { animation-delay: 260ms; }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+/* Slim progress bar at the top while a page is opening */
+.nav-progress { position: fixed; top: 0; left: 0; height: 2px; z-index: 120; background: var(--brand); box-shadow: 0 0 8px var(--brand); pointer-events: none; }
 .toast-in { animation: toast-in 0.2s ease-out both; }
 .skeleton {
   background: linear-gradient(90deg, var(--muted) 25%, var(--secondary) 50%, var(--muted) 75%);
@@ -149,5 +162,7 @@
   animation: shimmer 1.4s linear infinite;
 }
 @media (prefers-reduced-motion: reduce) {
-  .page-in, .toast-in, .skeleton { animation: none; }
+  .page-in, .page-in > *, .toast-in, .skeleton { animation: none; }
+  .nav-progress { transition: none !important; }
+  [style*="transition"] { transition: none !important; }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -29,6 +29,37 @@ const NAV = [
 ];
 
 const isActive = (pathname: string, href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/"));
+
+/** Thin top bar: starts when an internal link is clicked, finishes when the new page has rendered. */
+function NavProgress({ pathname }: { pathname: string }) {
+  const [w, setW] = useState(0);
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+      const a = (e.target as HTMLElement).closest?.("a");
+      const href = a?.getAttribute("href");
+      if (!a || !href || !href.startsWith("/") || a.target === "_blank") return;
+      if (href.split("#")[0].split("?")[0] === window.location.pathname) return;
+      setShow(true);
+      setW(12);
+      requestAnimationFrame(() => setW(70));
+    };
+    document.addEventListener("click", onClick);
+    return () => document.removeEventListener("click", onClick);
+  }, []);
+  // New page rendered: complete the bar, then fade it out.
+  useEffect(() => {
+    setW(100);
+    const t = setTimeout(() => {
+      setShow(false);
+      setW(0);
+    }, 350);
+    return () => clearTimeout(t);
+  }, [pathname]);
+  if (!show) return null;
+  return <div className="nav-progress" style={{ width: `${w}%`, transition: w === 70 ? "width 2.5s cubic-bezier(0.1, 0.8, 0.2, 1)" : "width 0.25s ease-out" }} />;
+}
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -119,6 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           )}
         </main>
         <Toaster />
+        <NavProgress pathname={pathname} />
         <CommandPalette db={db} role={me?.role} pages={pages} />
       </div>
     </div>

@@ -3,11 +3,23 @@
 // Dependency-free SVG/CSS charts. Colours come from theme tokens, so they follow dark mode.
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { cn, formatINR } from "@/lib/utils";
+
+/** False on first paint, true right after, so bars can grow from zero when the page opens. */
+function useReady() {
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setReady(true)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return ready;
+}
 
 /** Horizontal funnel: bar width = count, with the step-to-step conversion shown on the right. */
 export function FunnelChart({ steps }: { steps: { key: string; label: string; value: number }[] }) {
   const max = Math.max(1, ...steps.map((s) => s.value));
+  const ready = useReady();
   return (
     <div className="space-y-1.5">
       {steps.map((s, i) => {
@@ -18,9 +30,10 @@ export function FunnelChart({ steps }: { steps: { key: string; label: string; va
             <div className="text-muted-foreground w-28 shrink-0 text-sm sm:w-36">{s.label}</div>
             <div className="bg-muted relative h-8 flex-1 overflow-hidden rounded-md">
               <div
-                className="h-full rounded-md transition-all duration-500"
+                className="h-full rounded-md transition-[width] duration-700 ease-out"
                 style={{
-                  width: `${Math.max((s.value / max) * 100, s.value ? 3 : 0)}%`,
+                  transitionDelay: `${i * 70}ms`,
+                  width: ready ? `${Math.max((s.value / max) * 100, s.value ? 3 : 0)}%` : "0%",
                   background: `color-mix(in oklch, var(--chart-1) ${100 - i * 9}%, var(--chart-2))`,
                 }}
               />
@@ -38,13 +51,19 @@ export function FunnelChart({ steps }: { steps: { key: string; label: string; va
 /** Vertical bars with value labels. */
 export function BarChart({ data, format = formatINR, height = 160 }: { data: { label: string; value: number; color: string }[]; format?: (n: number) => string; height?: number }) {
   const max = Math.max(1, ...data.map((d) => Math.abs(d.value)));
+  const ready = useReady();
   return (
     <div className="flex items-end justify-around gap-4" style={{ height: height + 44 }}>
-      {data.map((d) => (
+      {data.map((d, i) => (
         <div key={d.label} className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
-          <div className="text-xs font-semibold tabular-nums">{format(d.value)}</div>
+          <div className="text-xs font-semibold tabular-nums transition-opacity duration-500" style={{ opacity: ready ? 1 : 0, transitionDelay: `${300 + i * 120}ms` }}>
+            {format(d.value)}
+          </div>
           <div className="flex w-full max-w-16 items-end" style={{ height }}>
-            <div className="w-full rounded-t-md transition-all duration-500" style={{ height: `${Math.max((Math.abs(d.value) / max) * 100, d.value ? 2 : 0)}%`, background: d.color }} />
+            <div
+              className="w-full rounded-t-md transition-[height] duration-700 ease-out"
+              style={{ height: ready ? `${Math.max((Math.abs(d.value) / max) * 100, d.value ? 2 : 0)}%` : "0%", background: d.color, transitionDelay: `${i * 120}ms` }}
+            />
           </div>
           <div className="text-muted-foreground truncate text-center text-xs">{d.label}</div>
         </div>
@@ -58,6 +77,7 @@ export function Donut({
   parts, centerLabel, centerValue, size = 148,
 }: { parts: { label: string; value: number; color: string }[]; centerLabel: string; centerValue: string; size?: number }) {
   const total = parts.reduce((s, p) => s + p.value, 0);
+  const ready = useReady();
   const r = 52;
   const c = 2 * Math.PI * r;
   let offset = 0;
@@ -66,8 +86,8 @@ export function Donut({
       <svg width={size} height={size} viewBox="0 0 140 140" role="img" aria-label={centerLabel}>
         <circle cx="70" cy="70" r={r} fill="none" stroke="var(--muted)" strokeWidth="16" />
         {total > 0 &&
-          parts.map((p) => {
-            const len = (p.value / total) * c;
+          parts.map((p, i) => {
+            const len = ready ? (p.value / total) * c : 0;
             const el = (
               <circle
                 key={p.label}
@@ -80,10 +100,10 @@ export function Donut({
                 strokeDasharray={`${len} ${c - len}`}
                 strokeDashoffset={-offset}
                 transform="rotate(-90 70 70)"
-                style={{ transition: "stroke-dasharray 0.5s" }}
+                style={{ transition: "stroke-dasharray 0.9s ease-out", transitionDelay: `${i * 150}ms` }}
               />
             );
-            offset += len;
+            offset += (p.value / total) * c;
             return el;
           })}
         <text x="70" y="66" textAnchor="middle" className="fill-foreground text-[13px] font-semibold">
@@ -108,9 +128,10 @@ export function Donut({
 
 /** A thin meter, e.g. share of leads that became bookings. */
 export function Meter({ value, className }: { value: number; className?: string }) {
+  const ready = useReady();
   return (
     <div className={cn("bg-muted h-1.5 overflow-hidden rounded-full", className)}>
-      <div className="bg-brand h-full rounded-full transition-all duration-500" style={{ width: `${Math.min(100, Math.max(0, value))}%` }} />
+      <div className="bg-brand h-full rounded-full transition-[width] duration-700 ease-out" style={{ width: ready ? `${Math.min(100, Math.max(0, value))}%` : "0%" }} />
     </div>
   );
 }
